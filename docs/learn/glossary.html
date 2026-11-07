@@ -1,0 +1,265 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>术语表 - DUAN</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book/edit/main/book-src/docs/learn/glossary.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="术语表"><a class="header" href="#术语表">术语表</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>English</th><th>中文</th><th>说明</th></tr></thead><tbody>
+<tr><td>System One</td><td>系统一</td><td>做快速决策而非生成的模型定位</td></tr>
+<tr><td>choice</td><td>选择题</td><td>从给定选项中选一个</td></tr>
+<tr><td>score</td><td>打分题</td><td>有序等级上的分布</td></tr>
+<tr><td>noul</td><td>是非题</td><td>一个命题为真的概率</td></tr>
+<tr><td>state</td><td>状态</td><td>请求里要判断的上下文数据</td></tr>
+<tr><td>soft label</td><td>软标签</td><td>选项上的概率分布，而非单个正确答案</td></tr>
+<tr><td>calibration</td><td>校准</td><td>预测概率与实际正确率一致的程度</td></tr>
+<tr><td>temperature scaling</td><td>温度缩放</td><td>用一个标量 T 把 logits 除以 T 后再 softmax</td></tr>
+<tr><td>proper scoring rule</td><td>适当评分规则</td><td>期望得分在报告真实概率时最优的评分方式</td></tr>
+<tr><td>ECE</td><td>期望校准误差</td><td>按置信度分箱后，置信度与准确率之差的加权平均</td></tr>
+<tr><td>NLL</td><td>负对数似然</td><td>正确选项概率的负对数均值</td></tr>
+<tr><td>Brier score</td><td>Brier 分数</td><td>概率向量与 one-hot 之差的平方和</td></tr>
+<tr><td>AUROC</td><td>ROC 曲线下面积</td><td>置信度区分对错答案的能力</td></tr>
+<tr><td>encoder</td><td>编码器</td><td>双向注意力结构，位置表示依赖整段序列；Laya 用的 ModernBERT 属于这类</td></tr>
+<tr><td>decoder</td><td>解码器</td><td>因果注意力结构，位置表示只依赖前缀，可做前缀缓存；Qwen3 属于这类</td></tr>
+<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力；kime 的 gate 报告把它记作 AUROC 0.30，但 0.30 低于随机水平，说明这个头的残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
+<tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，kime 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
+<tr><td>causal attention</td><td>因果注意力</td><td>每个位置只能看到它之前的位置</td></tr>
+<tr><td>bidirectional attention</td><td>双向注意力</td><td>每个位置能看到整段序列，任何 token 的加入都会改写前面的表示</td></tr>
+<tr><td>pointwise scoring</td><td>逐项打分</td><td>每个选项的分数只依赖它自己，对选项排列不变。标准编码器实现要 $k$ 次前向；解码器用分段布局可以一次前向。注意「逐项」说的是分数依赖什么，不是前向次数。它不影响 argmax：softmax 单调，$\arg\max_k z_k$ 与归一化无关；丢掉的是候选集上下文，不是选择能力</td></tr>
+<tr><td>listwise scoring</td><td>列表打分</td><td>分数依赖选项排列与候选集组成，因为选项在同一序列里互相可见</td></tr>
+<tr><td>layout</td><td>排法</td><td>同一次前向里选项怎么摆。两个常见取值：顺序拼接（互相可见）、分段布局（互不可见且位置重计）。但排法不止两种：kime-v1 互不可见却共用标记，标准编码器则根本不把选项放进同一序列</td></tr>
+<tr><td>forward count</td><td>前向次数</td><td>算了几次模型。它是排法的工程后果，不是结构的性质，也不决定打分方式</td></tr>
+<tr><td>segment mask</td><td>分段掩码</td><td>让几段文本共用一个前缀、彼此不可见的注意力掩码；本项目用它把各个选项段放进同一次前向</td></tr>
+<tr><td>position restart</td><td>位置重计</td><td>每个选项段的 RoPE 位置都从前缀长度开始，模型分不出选项的先后</td></tr>
+<tr><td>marker</td><td>标记</td><td>决策头读取其隐藏状态的特殊 token。DUAN 的结尾标记用嵌入矩阵里空着的 id，分词器产生不了；Laya 的 <code>[MASK]</code> 是词表内的普通特殊 token，所以渲染时要把用户文本里字面的 <code>[MASK]</code> 替换掉</td></tr>
+<tr><td>ordinal embedding</td><td>序数嵌入</td><td>加在 score 各档标记上的向量，告诉模型档位顺序，因为位置重计后模型看不出顺序。它跟着选项一起移动，所以不破坏置换不变性：位置重计消除的是「排版顺序」这个噪声，它注入的是「第 i 档 / 共 k 档」这个语义</td></tr>
+<tr><td>RPS, ranked probability score</td><td>有序概率评分</td><td>按累积分布比较的评分规则，档位猜偏一档比猜偏三档惩罚轻；用于 score 题</td></tr>
+<tr><td>GQA, grouped query attention</td><td>分组查询注意力</td><td>多个查询头共享一组键值头</td></tr>
+<tr><td>RoPE</td><td>旋转位置编码</td><td>用旋转矩阵把位置信息乘进 Q 和 K，使注意力分数只取决于相对位置；Qwen3 用 rotate-half 约定，θ = 1e6</td></tr>
+<tr><td>RMSNorm</td><td>均方根归一化</td><td>只按均方根缩放、不减均值，也没有偏置；Qwen3 的 eps 是 1e-6</td></tr>
+<tr><td>QK-norm</td><td>查询键归一化</td><td>在计算 $QK^\top$ 之前对每个头的 Q 和 K 各做一次归一化；Qwen3 有，Llama 没有</td></tr>
+<tr><td>SwiGLU</td><td>SwiGLU 门控前馈</td><td>门控前馈的一种，门用 SiLU；Qwen3 中间维度 3072，Llama 常用 4d</td></tr>
+<tr><td>KV cache</td><td>键值缓存</td><td>保存已算过的 K 和 V，增量前向时只算新 token；<code>KvCache::len()</code> 是新 token 在 <code>bias</code> 里的列偏移，不是它的 RoPE 位置</td></tr>
+<tr><td>prefix caching</td><td>前缀缓存</td><td>KV 缓存的一种用法：同一个前缀（例如 state）只算一次，多个后缀共用；P8 的收益来源</td></tr>
+<tr><td>order flip rate</td><td>选项翻转率</td><td>调换选项顺序后答案改变的比例</td></tr>
+<tr><td>permutation invariance</td><td>置换不变性</td><td>打乱输入顺序后输出不变的性质；pointwise 打分满足，listwise 不满足</td></tr>
+<tr><td>chunk consistency</td><td>分块一致性</td><td>同一道题在不同分块方式下给出的答案一致率。有两种口径，<strong>不能混</strong>：①「一次前向 vs 各分块」，②「各分块之间」。kime 的 chunking 报告（测的是 Laya）实测：①0.59–0.62（混有 token 预算差异），②0.790</td></tr>
+<tr><td>contamination</td><td>测试集泄漏</td><td>训练数据里出现了和评测集近似的文本；用 MinHash + Jaccard 0.5 检查，<code>kime contam</code> 实现</td></tr>
+<tr><td>distillation</td><td>蒸馏</td><td>让小模型学大模型的输出分布；kime-v1 用全交叉编码器教师，DUAN 不用（design.md 第 6 节）</td></tr>
+</tbody></table>
+</div>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../tools/data/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../tools/data/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

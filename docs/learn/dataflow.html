@@ -1,0 +1,345 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>一次请求的数据流 - DUAN</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book/edit/main/book-src/docs/learn/dataflow.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="一次请求的数据流"><a class="header" href="#一次请求的数据流">一次请求的数据流</a></h1>
+<p>这是 U3 的参考答案。先合上这一页，自己把图画出一次，画完再回来对照。</p>
+<p>我们跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>DUAN 换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
+<h2 id="先看请求长什么样"><a class="header" href="#先看请求长什么样">先看请求长什么样</a></h2>
+<pre><code class="language-json">{
+  "state": {"subject": "Refund", "body": "上个月我的信用卡被扣了两次款，请立即退款。"},
+  "questions": [
+    {"type": "choice", "instructions": "该转给哪个团队",
+     "criteria": [{"label": "billing"}, {"label": "sales"}, {"label": "legal"}]}
+  ]
+}
+</code></pre>
+<p>一个 <code>state</code> 加一组问题。每个问题有类型、指令和候选。模型要输出的是每个问题的<strong>答案字段</strong>，不是文本。</p>
+<h2 id="laya-怎么走完这一程"><a class="header" href="#laya-怎么走完这一程">Laya 怎么走完这一程</a></h2>
+<p>Laya 收到这个请求，把所有东西拼成一个序列：</p>
+<pre><code class="language-text">[CLS] 问题 [SEP] [MASK] 选项0 [MASK] 选项1 [MASK] 选项2 [SEP] state [SEP]
+</code></pre>
+<p>注意三件事，它们后面都会变成问题：</p>
+<ol>
+<li><strong>state 在最后。</strong> 所以 state 能看见前面的问题——但同时也挤在末尾，长 state 会被从尾部截断。</li>
+<li><strong>每个选项前面有一个 <code>[MASK]</code>。</strong> 这是读分数的位置。</li>
+<li><strong>选项之间互相看得见</strong>（第 3 条其实和上一条是一件事的两面：<code>[MASK]</code> 能看到整段）。</li>
+</ol>
+<p>然后：</p>
+<pre><code class="language-mermaid">flowchart LR
+    req["JSON 请求"] --&gt; render["渲染: 问题, 选项前的 MASK, 末尾的 state"]
+    subgraph laya ["Laya: 被替换的一段"]
+        enc["编码器"] --&gt; head2["2 层 head"]
+    end
+    render --&gt; enc
+    head2 --&gt; gather["gather: 读 MASK 位置"]
+    gather --&gt; scorer["scorer"]
+    scorer --&gt; calib["校准"]
+    calib --&gt; answer["类型化答案"]
+</code></pre>
+<p>编码器跑完，<code>gather</code> 从三个 <code>[MASK]</code> 位置各取一个隐藏状态，送进 scorer，每个得到一个 logit，softmax 之后就是概率。</p>
+<h2 id="duan-换掉了哪一段"><a class="header" href="#duan-换掉了哪一段">DUAN 换掉了哪一段</a></h2>
+<p><strong>不是整个 Laya。</strong> 换掉的只是中间那两块：编码器 + 2 层 head。</p>
+<p>框外面三件东西都留着：请求解析、scorer（决策头）、校准、答案组装。这是必须说清的一件事，因为它决定了 DUAN 要重写多少代码。</p>
+<pre><code class="language-mermaid">flowchart LR
+    req["JSON 请求: state + questions"] --&gt; render["渲染: state, 问题, 互不可见的选项段"]
+    subgraph duan ["DUAN: 换成这一段"]
+        qwen["Qwen3-0.6B 因果解码器"]
+    end
+    cache["state 前缀 KV 缓存"] -.-&gt; qwen
+    render --&gt; qwen
+    qwen --&gt; head["决策头: 每段结尾标记的隐藏状态到 logit"]
+    head --&gt; calib["校准: softmax(z / T)"]
+    calib --&gt; answer["类型化答案: choice / score / noul"]
+</code></pre>
+<p>两处关键差别：</p>
+<p><strong>读分数的位置变了。</strong> Laya 读选项<strong>前面</strong>的 <code>[MASK]</code>，DUAN 读选项<strong>后面</strong>的结尾标记。原因见 <a href="encoder-decoder.html">encoder-decoder.md</a> 第 3 节——因果模型里，位置只能看见自己之前的内容，放在选项前面的标记根本不知道选项是什么。</p>
+<p><strong><code>gather</code> 消失了。</strong> Laya 需要它是因为三个选项在同一个序列里，得按位置把三个 <code>[MASK]</code> 的隐藏状态挑出来。DUAN 也有这一步，但它不是独立节点——决策头读的就是各段末尾那个位置，不需要另外挑。</p>
+<h2 id="跟着一个值走"><a class="header" href="#跟着一个值走">跟着一个值走</a></h2>
+<p>把 <code>billing</code> 这个选项追到底：</p>
+<div class="table-wrapper"><table><thead><tr><th>步骤</th><th>发生了什么</th><th>输出的形状</th></tr></thead><tbody>
+<tr><td>解析</td><td><code>{"label":"billing"}</code> 变成结构体</td><td>一个 <code>Criteria</code> 对象</td></tr>
+<tr><td>渲染</td><td>变成 <code>billing</code> 三个 token，后面接 <code>⟨opt⟩</code></td><td>token id 序列</td></tr>
+<tr><td>前向</td><td>Qwen3 跑一次，带分段掩码</td><td>每段一个隐藏状态，1024 维</td></tr>
+<tr><td>决策头</td><td><code>LN → Linear → GELU → Linear</code></td><td>一个标量 logit</td></tr>
+<tr><td>softmax</td><td>三个 logit 一起归一化，温度 T</td><td>三个概率，和为 1</td></tr>
+<tr><td>组装</td><td>取 argmax 当 <code>choice</code>，算 confidence</td><td>一个 JSON 对象</td></tr>
+</tbody></table>
+</div>
+<p>其他两个选项走完全一样的五步，只是前向那一步是同时发生的——它们在一个张量里。</p>
+<h2 id="每个节点要注意什么"><a class="header" href="#每个节点要注意什么">每个节点要注意什么</a></h2>
+<p><strong>JSON 请求。</strong> <code>POST /v1/systemone</code>。<code>kime-core::request::parse</code> 用 <code>Limits::LAYA</code> 校验：最多 256 个问题、255 个选项、32 个等级。<code>kime.policy</code>、<code>kime.permutations</code>、<code>kime.shortlist</code> 这些扩展也在这里解析。</p>
+<p><strong>渲染。</strong> 这是两个项目差别最大的地方。DUAN 的顺序是 <code>[state] [问题 1] [选项 1.1] ... [问题 2] [选项 2.1] ...</code>，每段是「选项文本 + 结尾标记」，位置从 <code>n + len(问题块)</code> 重新开始。</p>
+<p>Laya 的渲染长这样（<code>spec/06-input.md</code>）：</p>
+<pre><code class="language-text">[CLS] tok("&lt;type&gt; question: &lt;instructions&gt;")[:budget] [SEP]
+[MASK] tok(" " + opt_0)[:48] ... [SEP]
+tok(state)[:room] [SEP]
+</code></pre>
+<p>选项上限 48 token，如果总长超过 <code>head_max_len</code> 就每个压到 <code>max(4, ...)</code>。state 从尾部截断，而且是<strong>静默</strong>的——这是个已知缺陷（Laya #174）。</p>
+<p>两边都要防一件事：用户文本里如果字面写着 <code>[MASK]</code> 或 <code>&lt;mask&gt;</code>，渲染时替换成空格，否则用户可以伪造标记。DUAN 的标记用的是词表外的 id，分词器压根产生不了，所以理论上不需要这层防护，但保留着没坏处。</p>
+<p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是 P4 要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
+<p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。kime-v1 靠拆成两个塔解决，DUAN 靠 Qwen3 的因果结构白得。</p>
+<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。<code>spec/03-api.md</code> 里那个示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
+<p><strong>决策头。</strong> Laya 是 <code>LayerNorm(d) → Linear(d,d) → GELU → Linear(d,1)</code>，每个选项出一个 logit。DUAN 用同样形态，但多一个按题型的偏置，作用在每个选项段结尾标记的隐藏状态上。</p>
+<p>score 题还要额外加序数嵌入，因为位置重计之后模型看不出档位顺序（<a href="encoder-decoder.html">encoder-decoder.md</a> 第 7.2 节）。</p>
+<p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找，回退顺序见 kime <code>spec/04-semantics.md</code>。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
+<p>这里修掉了 Laya 的一个不一致：它拟合时用 <code>[0.1, 10]</code>，运行时用 <code>[0.5, 5]</code>。拟合和运行必须是同一个范围，否则拟合出来的温度在运行时会被再次裁剪掉。</p>
+<p>顺带一个观察：<code>laya-multilingual</code> 这个快照的 checkpoint 里 <code>temperature = [1.0, 1.0, 1.0]</code>、<code>temperature_by_options = {}</code>——<strong>它根本没带拟合过的温度</strong>。</p>
+<p><strong>类型化答案。</strong> choice 给 <code>choice</code> + <code>probabilities</code> + <code>confidence</code>；score 给 <code>score = Σ i·p_i</code>、<code>legend</code>、<code>probabilities</code>；noul 给 <code>noul = p[1]</code>。三者都带 <code>action.act_probability</code>。</p>
+<p><code>confidence</code> 有两个公式，很容易混。实测同一个 <code>urgency</code> 问题：</p>
+<ul>
+<li><code>confidence</code> = 0.1243，用的是熵公式 <code>1 - H(p)/ln k</code></li>
+<li><code>answer_confidence</code> = 0.3686，用的是 <code>max(p)</code></li>
+</ul>
+<p>报告里两者都被叫作「置信度」。取数之前先确认拿的是哪个。</p>
+<h2 id="零样本的四个坑"><a class="header" href="#零样本的四个坑">零样本的四个坑</a></h2>
+<p><code>tools/ref/qwen_zero_probe.py</code> 读标签 token 的概率当分数，机制成立但很脆：</p>
+<ol>
+<li><strong>标签不能出现在 prompt 里。</strong> 否则模型是在复制标签，不是在选。</li>
+<li><strong>候选标签的首 token 必须互不相同。</strong> <code>option 1..4</code> 的首 token 都是 <code>option</code>，归一化之后必然是四个 0.25。这不是「模型觉得四个一样」，是读法失效。</li>
+<li><strong>对空格和大小写敏感。</strong> <code>billing</code>（1.6e-8）和 <code> billing</code>（6.1e-7）差 38 倍。</li>
+<li><strong>作答前缀要和模型实际的输出格式一致。</strong> 否则单 token 的标签（比如 <code>other</code>）会占便宜。</li>
+</ol>
+<p>所以 kime 的原生模型和 DUAN 都用学出来的标记加 scorer，不用这套读法。</p>
+<h2 id="改一个东西看会发生什么"><a class="header" href="#改一个东西看会发生什么">改一个东西，看会发生什么</a></h2>
+<p>U5 要复现的就是这张表。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见 <a href="../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测记录</a>。</p>
+<div class="table-wrapper"><table><thead><tr><th>改动</th><th>Laya 的变化</th><th>Qwen3 零样本</th><th>为什么反直觉</th></tr></thead><tbody>
+<tr><td>选项顺序反转</td><td><code>billing</code> 1.0 → 0.998；同一请求里的 <code>urgency</code>、<code>churn</code> 完全不变</td><td>待测</td><td>只有被改的那个问题变，说明问题之间独立；顺序影响只在问题内部</td></tr>
+<tr><td>加一个明显错误的选项 <code>legal</code></td><td><code>billing</code> 仍是 1.0</td><td>待测</td><td>概率已经饱和，softmax 没有余量可分，候选集效应被掩盖了。要看不饱和的题才看得出来</td></tr>
+<tr><td>标签改成 <code>option 1..4</code>，描述不变</td><td><code>team</code> 从 1.0 塌到 0.793</td><td>四个全 0.2500</td><td>Laya 确实依赖 label word。Qwen3 的 0.25 不是「四个一样」，是首 token 相同导致读法失效</td></tr>
+<tr><td>问题数 1 → 10</td><td>136 ms → 993 ms，7.3 倍</td><td>待测（预期远低于 10 倍）</td><td>线性增长说明 state 每个问题都重算</td></tr>
+<tr><td>state 换成反事实（“German club” → “Italian club”）</td><td>两次都选 <code>Roma</code>（0.918、0.669）</td><td><code>Bayern</code> 0.9998、<code>Roma</code> 0.9977</td><td>Laya 没有把国籍对到队名，Qwen3 跟着材料走。见<a href="../../experiments/2026-11-04-p0-club-counterfactual/index.html">欧冠反事实对照</a></td></tr>
+</tbody></table>
+</div>
+<p>还有个不属于改动实验、但同样反直觉的现象：三个问题的 <code>act_probability</code> 全是 1.0，包括最大概率只有 0.3686 的 <code>urgency</code>。Laya 的 act head 从来没训练过。</p>
+<h2 id="自测"><a class="header" href="#自测">自测</a></h2>
+<ol>
+<li>DUAN 替换掉的边界在哪里？框外还留着哪几个节点？</li>
+<li>为什么 Laya 需要 <code>gather</code>，而 DUAN 不需要一个对应的独立节点？</li>
+<li>同一个 state 上问 10 个问题，DUAN 省掉了什么？Laya 为什么省不掉？</li>
+<li>响应里的 <code>confidence</code> 和 <code>answer_confidence</code> 分别是什么公式？报告里说「置信度」时指的是哪个？</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../docs/learn/encoder-decoder.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../docs/learn/encoder-decoder.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

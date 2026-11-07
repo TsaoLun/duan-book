@@ -1,0 +1,486 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>编码器与解码器做决策的差别 - DUAN</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book/edit/main/book-src/docs/learn/encoder-decoder.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="编码器与解码器做决策的差别"><a class="header" href="#编码器与解码器做决策的差别">编码器与解码器做决策的差别</a></h1>
+<p>要给选项打分，只有一件事真正决定了模型得长什么样：<strong>读分数的那个位置，看得见什么。</strong></p>
+<p>这句话听着抽象。走一遍就清楚了，我们拿一个例子从头走到尾。</p>
+<h2 id="1-一个例子"><a class="header" href="#1-一个例子">1. 一个例子</a></h2>
+<p>一封客户工单：</p>
+<blockquote>
+<p>上个月我的信用卡被扣了两次款，请立即退款。</p>
+</blockquote>
+<p>模型要回答：该转给哪个团队。三个选项：</p>
+<div class="table-wrapper"><table><thead><tr><th>选项</th><th>文本</th></tr></thead><tbody>
+<tr><td>billing</td><td>账单与退款</td></tr>
+<tr><td>sales</td><td>售前咨询与报价</td></tr>
+<tr><td>legal</td><td>合同与合规</td></tr>
+</tbody></table>
+</div>
+<p>工单正文是 state，问题是「该转给哪个团队」。模型输出的不是一段话，是三个分数。记住这封工单，下面每一步都用它。</p>
+<h2 id="2-一个位置里装了什么"><a class="header" href="#2-一个位置里装了什么">2. 一个位置里装了什么</a></h2>
+<p>打分是拿某个位置的隐藏状态过一个小网络，得到一个数。所以先得问：<strong>那个位置的隐藏状态，里面装的是啥？</strong></p>
+<p>装的是「它能看见的那些 token」压缩出来的东西。能看见谁，由注意力决定。有两种：</p>
+<ul>
+<li><strong>因果注意力</strong>（Qwen3 这类解码器）：第 i 个位置只能看见 0 到 i，也就是它自己和自己之前。</li>
+<li><strong>双向注意力</strong>（ModernBERT 这类编码器）：每个位置看得见整段。</li>
+</ul>
+<p>画出来，<code>s</code> 是工单正文，<code>q</code> 是问题，<code>o₁</code> 是 billing，<code>m</code> 是我们准备读分数的标记：</p>
+<pre><code>     因果                       双向
+        s q o₁ m                  s q o₁ m
+    s   ■ · ·  ·              s   ■ ■ ■ ■
+    q   ■ ■ ·  ·              q   ■ ■ ■ ■
+   o₁   ■ ■ ■  ·             o₁   ■ ■ ■ ■
+    m   ■ ■ ■  ■              m   ■ ■ ■ ■
+</code></pre>
+<p>左边每一行是个「到目前为止」的压缩，右边每一行是整段的一个摘要。</p>
+<p>这个差别看着小，它是后面所有事情的地基。</p>
+<h2 id="3-标记为什么要放在选项后面"><a class="header" href="#3-标记为什么要放在选项后面">3. 标记为什么要放在选项后面</a></h2>
+<p>先看右边。<code>m</code> 在末尾，能看见 <code>o₁</code>；<code>o₁</code> 也能看见 <code>m</code>。谁放哪都行。</p>
+<p>再看左边。<code>m</code> 能看见 <code>o₁</code>，因为它排在 <code>o₁</code> 后面。把 <code>m</code> 挪到前面去：</p>
+<pre><code>        s q m o₁
+    m   ■ ■ ■ ·     ← m 这一行看不见 o₁
+</code></pre>
+<p><code>m</code> 的隐藏状态里根本没有 <code>o₁</code> 的信息。拿它给 <code>o₁</code> 打分，等于蒙着眼打分。</p>
+<p><strong>所以标记必须放在选项文本后面。</strong> 这不是排版偏好，是「读分数的位置得看得见它要打分的那个选项」的直接结果。</p>
+<p>在编码器里这从来不是问题——它总是看得见全文。所以不少人从编码器换到解码器时，会照着原来的习惯把标记放前面，然后发现模型在瞎猜。原因就在这里。</p>
+<h2 id="4-选项多了会出什么事"><a class="header" href="#4-选项多了会出什么事">4. 选项多了会出什么事</a></h2>
+<p>刚才只有一个选项。现在把三个都接上，还是因果：</p>
+<pre><code>s q  m o₁  m o₂  m o₃
+</code></pre>
+<p>问一句：<code>o₁</code> 那个位置的隐藏状态里有什么？</p>
+<p>有 <code>s</code>、<code>q</code>、<code>o₁</code>。<strong>没有 <code>o₂</code> 和 <code>o₃</code></strong>——它们排在 <code>o₁</code> 后面。</p>
+<p>而 <code>o₃</code> 的隐藏状态里有 <code>s</code>、<code>q</code>、<code>o₁</code>、<code>o₂</code>、<code>o₃</code>，前面所有的东西。</p>
+<p>麻烦就在这儿：<strong>同一道题的三个选项，是在三种不同的信息条件下被打分的。</strong> 排在后面的能看见前面的，排在前面的看不见后面的。</p>
+<p>后果很具体：<strong>换个顺序，答案就可能变。</strong></p>
+<p>这个改不了。训练再多也不行——在训练集上，模型能学到「如果 billing 排在第一位，它更可能是答案」这种规律，而这条规律在真实世界里是假的，纯粹是排版造出来的。</p>
+<p>这个现象叫选项翻转率。kime 在 Laya 上测过，那是同一套权重、同一批题，只改顺序：</p>
+<div class="table-wrapper"><table><thead><tr><th>数据集</th><th>选项数</th><th>翻转率</th><th>至少翻过一次的题</th></tr></thead><tbody>
+<tr><td>XNLI</td><td>3</td><td>0.0013</td><td>0.33%</td></tr>
+<tr><td>Emotion</td><td>6</td><td>0.0477</td><td>11.0%</td></tr>
+<tr><td>MASSIVE</td><td>20</td><td>0.1600</td><td>29.7%</td></tr>
+</tbody></table>
+</div>
+<p><strong>先看清这两个指标的分母</strong>，否则会读错一倍以上：</p>
+<ul>
+<li><strong>翻转率</strong>的分母是<strong>重排副本</strong>——每道题生成若干种排列，每一种叫一个副本，统计其中有多少副本的答案和原排列不同。</li>
+<li><strong>「至少翻过一次的题」<strong>的分母才是</strong>题</strong>。</li>
+</ul>
+<p>以 MASSIVE 为例：300 道题做成 1500 个重排副本，其中 16.0% 的副本翻了；而<strong>有 29.7% 的题，至少有一种排列会翻</strong>。</p>
+<p>所以准确的说法是：<strong>MASSIVE 上 16% 的重排副本换了答案，近三成的题受影响。</strong></p>
+<p><strong>这里有个反直觉的地方：选项越多，翻转率越高，但原因不是「选项多所以乱」。</strong></p>
+<ul>
+<li><strong>Emotion 只有 6 个选项</strong>，翻转率 0.048；</li>
+<li><strong>MASSIVE 有 20 个选项</strong>，翻转率 0.160；</li>
+<li><strong>XNLI 只有 3 个选项</strong>，翻转率 0.0013。</li>
+</ul>
+<p>如果只看选项数，Emotion 的 6 个和 XNLI 的 3 个差不多，翻转率却差 37 倍。真正的差别在<strong>语义距离</strong>：XNLI 的三个类别是蕴含 / 中立 / 矛盾，彼此判然有别；Emotion 的六个情绪之间有大量重叠（joy 和 love、fear 和 surprise 常常同时成立），位置信息足以把结论推到相邻的类上。</p>
+<p><strong>同一个模型，一边是 0.13%，一边是 16%——差 120 倍。</strong> 这个指标必须按数据集看，取平均没有意义。</p>
+<p>翻转率高的那个做法，行话叫 <strong>listwise</strong>：分数依赖整个候选集，换个队友分数就变。下面编码器的做法叫 <strong>pointwise</strong>：每个选项各算各的，跟别人无关。这两个词在后面还会反复出现。</p>
+<h2 id="5-编码器怎么避开这一条"><a class="header" href="#5-编码器怎么避开这一条">5. 编码器怎么避开这一条</a></h2>
+<p>常规做法很干脆：<strong>一个选项跑一次前向。</strong></p>
+<pre><code>前向 1:  [CLS] s q o₁  →  读 [CLS] → z₁
+前向 2:  [CLS] s q o₂  →  读 [CLS] → z₂
+前向 3:  [CLS] s q o₃  →  读 [CLS] → z₃
+</code></pre>
+<p>每次只放一个选项，<code>o₂</code> 压根不在 <code>o₁</code> 那次前向里，交换顺序当然不影响任何东西。这就是编码器天然的置换不变性。</p>
+<p>代价很直接：三个选项三次前向。而且 state 那么长，每次都重新编码一遍。</p>
+<p>选项数上去就很吓人。kime 的默认上限是每问题 255 个选项（开了 <code>kime.shortlist</code> 可以到 4096），照这个做法就是 255 次完整前向，每次都把整段 state 过一遍。</p>
+<h2 id="6-解码器能不能也切开"><a class="header" href="#6-解码器能不能也切开">6. 解码器能不能也切开</a></h2>
+<p>能。这就是 DUAN 的做法。</p>
+<p>想法是把三个选项排在同一个序列里，但让它们互相看不见：</p>
+<pre><code>s q  │  o₁ m  │  o₂ m  │  o₃ m
+</code></pre>
+<p>注意力长这样：</p>
+<pre><code>           s q │ o₁ m₁ │ o₂ m₂ │ o₃ m₃
+       s   ■ · │  · ·  │  · ·  │  · ·
+       q   ■ ■ │  · ·  │  · ·  │  · ·
+      o₁   ■ ■ │  ■ ■  │  · ·  │  · ·
+      m₁   ■ ■ │  ■ ■  │  · ·  │  · ·
+      o₂   ■ ■ │  · ·  │  ■ ■  │  · ·
+      m₂   ■ ■ │  · ·  │  ■ ■  │  · ·
+      o₃   ■ ■ │  · ·  │  · ·  │  ■ ■
+      m₃   ■ ■ │  · ·  │  · ·  │  ■ ■
+</code></pre>
+<p>每一段看得见前缀 <code>s q</code>，也看得见自己，看不见别的段。中间那几块全空。</p>
+<p><strong>于是每一段的计算，和「把这一段单独接在前缀后面」一模一样。</strong> 数学上这就是三次独立的前向。</p>
+<p>但它们被打包进了同一个张量。这不是把三次算变成一次，而是<strong>把三次算合并成一批</strong>：</p>
+<div class="table-wrapper"><table><thead><tr><th>项目</th><th>分开跑三次</th><th>合并成一批</th><th>省了什么</th></tr></thead><tbody>
+<tr><td>选项段本身的矩阵乘</td><td>3 份</td><td>3 份</td><td>没省</td></tr>
+<tr><td>前缀 <code>s q</code> 的编码</td><td>3 份</td><td>1 份</td><td><strong>省 2 份</strong></td></tr>
+<tr><td>权重从显存读到计算单元</td><td>3 次</td><td>1 次</td><td><strong>省 2 次</strong></td></tr>
+<tr><td>内核启动、调度</td><td>3 次</td><td>1 次</td><td><strong>省 2 次</strong></td></tr>
+</tbody></table>
+</div>
+<p>所以「一次前向」说的是<strong>批次数</strong>，「逐项打分」说的是<strong>分数依赖谁</strong>。两句话在不同层面上，不冲突。</p>
+<p>如果只记一件事：<strong>计算量一点没少，省的全是重复的那部分</strong>——重复的前缀、重复的权重搬运、重复的调度开销。</p>
+<p>上面那张矩阵回答的是另一个问题：段与段之间全空，所以 <code>z₁</code> 不依赖 <code>o₂</code>、<code>o₃</code>，交换它俩只交换两个 logit。</p>
+<p>还有一步不能漏：<strong>位置要跟着重算。</strong></p>
+<p>模型怎么知道谁排在谁后面？靠 RoPE——旋转位置编码，把「这是第几个 token」编码进注意力的分数里。这是 Qwen3 这类模型唯一的位置信号。</p>
+<p>如果三段的 RoPE 位置还接着往下排（0,1,2,3…），模型仍然能算出「<code>o₂</code> 排在 <code>o₁</code> 后面」，那掩码就白改了。所以每段的位置都从前缀长度重新开始，三段用的是同一组位置。</p>
+<p>掩码和位置一起改，才真的等价于「单独跑」。</p>
+<p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
+<p>排除它的理由有三个，都不是「做不到」：</p>
+<ol>
+<li><strong>要自己实现。</strong> 因果模型天生就是这样，掩码是免费的。编码器的双向掩码要手写，而且 RoPE 位置重算、KV 缓存也得跟着改。</li>
+<li><strong>权重没在这种可见范围下待过。</strong> Laya 的 ModernBERT 是按 MLM 训的，训练时每个 token 都看得见全文。突然切成分段，它没见过这种条件。</li>
+<li><strong>拿不到那批预训练语料。</strong> 就算愿意重训，Qwen3 那批中文预训练数据是现成的，重新对齐一个中文 ModernBERT 不是。</li>
+</ol>
+<p>所以这是<strong>成本问题</strong>，不是原理问题。design.md 第 4.1 节的 D 方案走的正是这条路，它的定性是**「原理上可行」**，只排除在成本上：</p>
+<blockquote>
+<p>加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</p>
+</blockquote>
+<p>注意 design.md 真正「被排除」的是 A 和 B 两条（A 结构性不可行，B 成本随选项线性增长），D 只是没被选。</p>
+<h2 id="7-切开之后还剩三个问题"><a class="header" href="#7-切开之后还剩三个问题">7. 切开之后还剩三个问题</a></h2>
+<h3 id="71-选项不能互相比了还行吗"><a class="header" href="#71-选项不能互相比了还行吗">7.1 选项不能互相比了，还行吗</a></h3>
+<p>这是最让人不放心的一点。<code>o₁</code> 看不见 <code>o₂</code>，模型怎么知道在这三个里挑哪个？</p>
+<p>答案比想象的简单：<strong>选哪个只由分数大小决定，跟能不能互相比无关。</strong></p>
+<p>softmax 是单调的：</p>
+<p>$$\arg\max_k \frac{e^{z_k}}{\sum_j e^{z_j}} = \arg\max_k z_k$$</p>
+<p>三个分数都是同一把尺子量出来的——同一组权重、同一个读取位置、同样的前缀——所以它们本来就在一个尺度上，比大小就行。</p>
+<p>那「互相看得见」到底多给了什么？</p>
+<p>多给的是<strong>信息</strong>。模型知道「候选集里还有别的什么」，可以据此调整判断，比如学到「如果 legal 也在候选里，这单更可能是 billing」。这个信息切开之后就没了。</p>
+<p>这是真的损失，不是能糊弄过去的。但它不是「没法选」，是「少了一点上下文」。</p>
+<p>kime-v1 走了条中间路线，机制值得看一眼，因为它说明了「可比较性」到底靠什么实现。</p>
+<p>它的掩码规则是这样的（kime <code>spec/05-model.md</code>）：</p>
+<pre><code class="language-text">问题头 token  →  看问题头 + 所有选项的标记
+选项 body    →  看问题头 + 自己这一段 + 所有选项的标记
+选项标记     →  看问题头 + 自己这一段 + 所有标记
+</code></pre>
+<p>关键在第二行和第三行的「所有选项的标记」。<strong>选项 body 看不见别的选项的正文，但看得见每一个选项的标记。</strong></p>
+<p>打个比方：三个人分别在小房间里，看不见彼此的纸条，但能看见墙上挂着的三张标签。于是谁都能说「我这张纸条和墙上那三张标签是什么关系」，间接地把自己和同伴放在同一个坐标里。</p>
+<p>这就是「介于 pointwise 和 listwise 之间」的确切含义：</p>
+<div class="table-wrapper"><table><thead><tr><th>像 pointwise 的地方</th><th>像 listwise 的地方</th></tr></thead><tbody>
+<tr><td>选项 body 之间互不可见</td><td>都看得见同一组标记</td></tr>
+<tr><td>没有位置偏差（段位置都重算）</td><td>分数隐含依赖「这一组里还有谁」</td></tr>
+</tbody></table>
+</div>
+<p><strong>代价也随之而来。</strong> 那个「墙上的标签」是同一组，只在同一行里成立。选项超过 32 个要切块，每块是独立的一行、墙上挂的是不同的标签集合——于是<strong>跨块的分数没法直接比</strong>。所以 kime-v1 必须靠随机分块训练，让模型学会在任意分块下都给出可比的分数。</p>
+<p>DUAN 把这条路也切断了：连标记通道都不要，每段只看得见前缀和自己。换来的是任何分块下每段都独立算、跨块天然可比；付出的是候选集上下文。</p>
+<p>顺带解释一个术语：上文说的「标记通道」，指的就是「选项能看到别的选项的标记」这条信息路径。kime-v1 留着它，DUAN 切掉它。</p>
+<p><strong>分块到底会造成多大差异，可以看一个实测。</strong> 这个数字来自 kime 的 chunking 报告，不过要注意它测的是 <strong>Laya，不是 kime-v1</strong>——它是 <code>--model laya</code> 跑出来的，正文第一句写「Laya English through kime on an M4 with Metal」，结尾说「the gate is for kime-v1 (#44) and this run is its baseline」，也就是拿 Laya 当 kime-v1 的基线。</p>
+<p><strong>先说清实验设置。</strong> 300 道 banking77 题，每题 64 个选项（金标 + 63 个随机抽）。三种跑法：一次跑完，以及按 <strong>8 / 16 / 32 个一块</strong>分别跑（注意这是三种<strong>块大小</strong>，不是「切成三块」——64 个选项按 8 切是 8 块，按 32 切是 2 块）。</p>
+<div class="table-wrapper"><table><thead><tr><th>对照</th><th>一致率</th></tr></thead><tbody>
+<tr><td>一次跑 vs 块 8</td><td>0.623</td></tr>
+<tr><td>一次跑 vs 块 16</td><td>0.600</td></tr>
+<tr><td>一次跑 vs 块 32</td><td>0.593</td></tr>
+<tr><td>8 / 16 / 32 三种块大小互相之间</td><td><strong>0.790</strong></td></tr>
+</tbody></table>
+</div>
+<p><strong>这两栏都要小心读，没有一栏是「纯」的。</strong></p>
+<p><code>0.790</code> 常被当作「分块尺度问题」的干净度量，其实<strong>也混了 token 预算</strong>。因为 Laya 的拥挤规则是 <code>max(4, (head_max_len - 16) / k)</code>，<code>head_max_len</code> 是 192，于是每个选项能分到的 token 数是：</p>
+<div class="table-wrapper"><table><thead><tr><th>每块选项数</th><th>每选项 token</th></tr></thead><tbody>
+<tr><td>64（一次跑）</td><td>4</td></tr>
+<tr><td>32</td><td>5.5</td></tr>
+<tr><td>16</td><td>11</td></tr>
+<tr><td>8</td><td>22</td></tr>
+</tbody></table>
+</div>
+<p>所以 8 / 16 / 32 之间既差分块尺度，也差每选项的 token 数。报告本身也只说这是 logit 尺度的问题，没有声称这一组排除了预算因素。</p>
+<p><code>0.593–0.623</code> 那一栏混得更重——它把「一次跑（4 token）」和「分块（5.5 到 22 token）」对比，两个变量同时变了。</p>
+<p><strong>证据是分块之后准确率反而更高</strong>：banking77 的 Top-1 在一次跑时是 0.523，分块后<strong>升</strong>到 0.607–0.623。如果这个对照真在衡量「结构缺陷」，不该出现这种方向。</p>
+<p><strong>还有一个陷阱：这两组数字的区间几乎重叠，但不是一回事。</strong></p>
+<ul>
+<li>「一次跑 vs 分块的答案<strong>一致率</strong>」= 0.593–0.623</li>
+<li>「分块后的 <strong>Top-1 准确率</strong>」= 0.607–0.623</li>
+</ul>
+<p>前者衡量「两次跑答得一样不一样」，后者衡量「答得对不对」。看的时候盯指标名，不要盯数字。</p>
+<p><strong>那能从这个实验里得出什么？</strong> 只有一条是稳的：<strong>分块会改变 Laya 的答案，而且改变幅度不小。</strong> 至于其中多少来自可见性、多少来自 token 预算，这个实验分不开——需要固定 token 预算重做一次才能定。</p>
+<p>DUAN 不需要这个实验就能保证分块等价，因为它的段与段之间没有任何信息通道，任何分块下每段都独立算。这是设计的推论，不是实测结论；P4 会用「标记放在选项前面」的布局做对照，量出翻转率。</p>
+<h3 id="72-档位顺序丢了"><a class="header" href="#72-档位顺序丢了">7.2 档位顺序丢了</a></h3>
+<p>前面一直用 choice 举例。score 题不一样，值得单独说，因为它的选项有顺序。</p>
+<p>一份工单的紧急程度可以打 1 到 5 分。这五个档位本身有方向：1 分和 2 分是相邻的，1 分和 5 分是完全相反的两端。</p>
+<p>位置重算把这层顺序抹掉了——五个档位段的位置都一样，模型看不出哪个是第一档、哪个是第五档。所以要另外把顺序喂给模型：</p>
+<p>$$u_i = h_i + \mathrm{ord_emb}(i, k)$$</p>
+<p><code>i</code> 是第几档，<code>k</code> 是一共几档。这个向量是学出来的，输入四个数：<code>[i/(k-1), (i/(k-1))², sin(πi/(k-1)), cos(πi/(k-1))]</code>。kime 和 DUAN 用的是同一套。</p>
+<p><strong>加在哪里还有待定。</strong> design.md 目前先按 kime 的做法加在<strong>输出端</strong>（就是上面这个式子，$h_i$ 是标记的隐藏状态，加完再进打分器）。另一个选择是加在<strong>输入端</strong>的 <code>⟨lvl⟩</code> 嵌入上，让主干从第一层就能看到档位。两种都说得通，P4 做一次对照来定。</p>
+<p>差别只在「模型第几层开始知道档位」：加在输入端，前 28 层都能用这个信息；加在输出端，只有最后的打分器知道。这不是「是否引入顺序」的差别——两种都引入了。</p>
+<p>为什么补这个不算「又把位置偏差带回来了」？</p>
+<p>因为抹掉的和补上的不是同一样东西。位置重算抹掉的是「谁排在序列前面」——那是渲染顺序造成的偶然事实。ord_emb 补的是「这是第几档」——那是数据本身的属性。调用方把档位倒过来传，ord_emb 跟着倒，答案也应该跟着倒。</p>
+<p>判断标准就一条：打乱顺序，分数跟着它自己的选项走。ord_emb 满足，RoPE 位置不满足。</p>
+<h3 id="73-缓存到底存的什么"><a class="header" href="#73-缓存到底存的什么">7.3 缓存到底存的什么</a></h3>
+<p>DUAN 能缓存，这是选它的主要理由之一。但这里有个容易混的地方。</p>
+<p>「前缀」在两种语境下不是一回事：</p>
+<ul>
+<li><strong>一次前向里的前缀</strong>：<code>s</code> 加 <code>q</code>。同一道题的所有选项段共用它。不同问题的 <code>q</code> 不同，前缀就不同。</li>
+<li><strong>跨请求的缓存</strong>：只有 <code>s</code>。同一个 state 上来了新问题，<code>s</code> 已经算过的中间结果（KV，也就是注意力的 key 和 value）直接读出来，只有 <code>q</code> 和选项要重算。</li>
+</ul>
+<p>所以「同一个 state 上十个问题共享前缀」，共享的是 <code>s</code> 那一截。<code>q</code> 每个问题都得算一遍。</p>
+<p>Laya 做不到。它的 state 和问题从第 0 层就互相看得见，加一个问题，state 的表示就得全部重写。实测：同一个 state 上问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明一点没复用。</p>
+<p>而选项数从 2 加到 32（16 倍），耗时只涨到 4.9 倍——因为选项变多只是序列变长，前向次数没变。这两个数字放一起看才完整：<strong>Laya 省了前向次数，赔了 state 复用。</strong></p>
+<h2 id="8-几种做法摆一起"><a class="header" href="#8-几种做法摆一起">8. 几种做法摆一起</a></h2>
+<p>这四种做法的根本区别是：<strong>一次前向装得下多少东西。</strong> 用这个视角看，表格不会歧义。</p>
+<div class="table-wrapper"><table><thead><tr><th>做法</th><th>一次前向的单位</th><th>state 编码几次</th><th>选项之间</th><th>换顺序会变吗</th></tr></thead><tbody>
+<tr><td>标准编码器</td><td>一个（state, 问题, 选项）</td><td>每选项 1 次</td><td>不在同一序列</td><td>不会</td></tr>
+<tr><td>Laya</td><td>一个（state, 问题）</td><td>每问题 1 次</td><td>互相看得见</td><td>会</td></tr>
+<tr><td>kime-v1</td><td>一个（state, 问题块），块 ≤ 32 选项</td><td>1 次（可缓存）</td><td>看不见，但共用标记</td><td>块内不会，跨块不可比</td></tr>
+<tr><td><strong>DUAN</strong></td><td><strong>整个请求</strong>（state + 全部问题 + 全部选项）</td><td>1 次（可缓存）</td><td>看不见，也不共用任何东西</td><td>按构造不会</td></tr>
+</tbody></table>
+</div>
+<p>从第一行看到最后一行，就是「一次前向装的东西越来越多」：一个选项 → 一个问题 → 一个块 → 整个请求。</p>
+<p>两个容易读错的格子：</p>
+<ul>
+<li><strong>Laya 不是「每个请求一次」。</strong> 它是 <code>One sequence per question</code>（kime <code>spec/06-input.md</code>），一个请求里有 10 个问题就跑 10 次。实测问题数 1 → 10 耗时 7.3 倍，正是这个线性关系的证据。</li>
+<li><strong>kime-v1 的 64 选项不是两块就完事。</strong> 选项超过 32 个时，先按块打分，再把概率最高的 16 个合起来重打一次（<code>spec/04-semantics.md</code>）。所以 64 选项 = 2 次分块前向 + 1 次联合重打。</li>
+</ul>
+<p>DUAN 那一行的「按构造不会」是设计推论，还没有实测——P4 会用「标记放在选项前面」的布局做对照量出来。</p>
+<h2 id="9-三个容易讲错的地方"><a class="header" href="#9-三个容易讲错的地方">9. 三个容易讲错的地方</a></h2>
+<p><strong>「因果模型的表达能力更弱」。</strong> 不对。在给定序列上，它只是信息流受限，判别精度不必然更低。真正的代价在成本、对称性和可复用性。</p>
+<p><strong>「编码器一次前向就能给所有选项打分」。</strong> 对标准编码器来说不对，它是一次一个选项。把选项全塞进一个序列确实能一次跑完，Laya 就这么干，但代价是选项互相看得见。</p>
+<p><strong>「一次前向就是 listwise」。</strong> 不对。一次前向说的是算了几批，listwise 说的是分数依赖什么。DUAN 一次前向，但分数只依赖单个选项。判断看矩阵的形状：<strong>只看选项段和选项段之间那块区域</strong>有没有连线，不看前缀那块（它在哪种做法里都是下三角）。</p>
+<h2 id="10-自测"><a class="header" href="#10-自测">10. 自测</a></h2>
+<p>每题后面标了答案在正文哪一节。先自己答，答完再回去对。</p>
+<ol>
+<li>同一道三选题，Laya 和 DUAN 各做几次前向？各自的 state 被算几次？（§8）</li>
+<li>把 <code>o₁</code> 和 <code>o₃</code> 换个位置，顺序拼接和分段布局下的分数会怎么变？为什么？（§4、§6）</li>
+<li>分段布局既要「一次前向」又要「逐项打分」，这两件事为什么不矛盾？省掉的是什么，没省的是什么？（§6）</li>
+<li>选项之间不能互相比，为什么 choice 还能做对？写出那个等式，并说明 listwise 多出来的到底是什么。（§7.1）</li>
+<li>ord_emb 加回顺序为什么不破坏置换不变性？加在输入端和输出端有区别吗？（§7.2）</li>
+<li>「十个问题共享前缀」，共享的是哪一段？<code>q</code> 能不能也缓存？（§7.3）</li>
+<li>为什么校准要按选项数量分桶？（§7.3 末尾没有直接讲，答案要合起来看：softmax 的分母受 k 影响，所以温度要按 k 分桶才准。详见 <code>design.md</code> 第 6 节和 kime <code>spec/04-semantics.md</code>）</li>
+</ol>
+<p>第 7 题正文里没展开，因为它是校准的话题，属于 P1、P6 的内容。这里只需要记住结论：<strong>k 变了，softmax 的形状就变，同一个温度不再适用。</strong></p>
+<h2 id="11-数据出处"><a class="header" href="#11-数据出处">11. 数据出处</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>数字</th><th>含义</th><th>条件</th><th>出处</th></tr></thead><tbody>
+<tr><td>0.0013 / 0.0477 / 0.1600</td><td><strong>Laya</strong> 的翻转率（XNLI / Emotion / MASSIVE）</td><td>分母是<strong>重排副本</strong>：1500 / 3000 / 1500 个副本，对应 300 / 600 / 300 道题</td><td>kime <code>2026-09-30-gate/gate.md</code>、<code>report.md</code></td></tr>
+<tr><td>0.33% / 11.0% / 29.7%</td><td><strong>至少翻过一次的题</strong>的比例</td><td>分母是<strong>题</strong>，与上一行不同</td><td>kime <code>2026-09-30-gate/report.md</code></td></tr>
+<tr><td>3 / 6 / 20</td><td>上面三个数据集的选项数</td><td>XNLI 三分类型；Emotion 6 个情绪；MASSIVE 按 <code>N_OPTS=20</code> 抽</td><td>kime <code>tools/eval/build_suites.py</code></td></tr>
+<tr><td>4.9x</td><td>选项 2 → 32（16 倍）的耗时比</td><td>同一 state、同一问题、CPU 6 线程、三次取中位数</td><td><a href="../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测</a></td></tr>
+<tr><td>7.3x</td><td>问题 1 → 10 的耗时比</td><td>同一 state、同样的 choice 问题、CPU 6 线程、三次取中位数；<strong>请求粒度原始记录未写明</strong></td><td>同上</td></tr>
+<tr><td>0.593–0.623</td><td><strong>Laya</strong> 一次跑 vs 各块大小的一致率</td><td>300 题 banking77，每题 64 选项，M4 Metal；混有 token 预算差异</td><td>kime <code>2026-09-30-chunking/banking77.md</code></td></tr>
+<tr><td>0.790</td><td><strong>Laya</strong> 块 8/16/32 互相之间的一致率</td><td>同上；<strong>同样混有 token 预算差异</strong></td><td>同上</td></tr>
+<tr><td>0.523 → 0.607–0.623</td><td><strong>Laya</strong> 的 banking77 Top-1</td><td>同上；每选项 token 数 4（一次跑）→ 5.5~22（分块）</td><td>同上</td></tr>
+</tbody></table>
+</div>
+<p>三处容易读错的地方：</p>
+<ul>
+<li><strong>翻转率的分母是副本，不是题。</strong> 「16% 的题换了答案」是错的——MASSIVE 是 16% 的<strong>重排副本</strong>换了答案，受影响的是 <strong>29.7% 的题</strong>。这两个数差近一倍。</li>
+<li><strong>chunking 报告测的是 Laya，不是 kime-v1。</strong> 报告结尾写明它是给 kime-v1 设的门槛，这一轮跑的是基线。</li>
+<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya compat 是 <code>One sequence per question</code>（<code>spec/06-input.md</code>），两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
+</ul>
+<p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
+<p>这个项目的来龙去脉见 README.md，一次请求的数据流见 <a href="dataflow.html">dataflow.md</a>。</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../docs/plan.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../docs/learn/dataflow.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../docs/plan.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../docs/learn/dataflow.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>设计规格 - DUAN</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book/edit/main/book-src/docs/design.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="duan-模型规格"><a class="header" href="#duan-模型规格">DUAN 模型规格</a></h1>
+<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。<a href="plan.html">plan.md</a> 的每个里程碑都是为了把这里的某一节做出来，learn/ 的每个学习单元都是为了能看懂、做出某一节。</p>
+<p>规格里写「待定」的地方，都注明由哪个阶段的哪个实验来定。实验定下来以后改这份文档，不另写。</p>
+<h2 id="1-目标与非目标"><a class="header" href="#1-目标与非目标">1. 目标与非目标</a></h2>
+<p><strong>目标：</strong> 一个中文为主的 System One 决策模型。输入一段 state 和若干问题（choice、score、noul），一次前向输出每个问题的校准概率。</p>
+<p>终点的验收标准，也就是 P4 的完成标准：</p>
+<ul>
+<li>在中文评测集上，NLL 和 ECE 优于用同一批数据、同样损失微调的 laya-multilingual；</li>
+<li>至少 3 个随机种子；</li>
+<li>选项翻转率接近 0，剩下的只是浮点误差。</li>
+</ul>
+<p><strong>非目标：</strong></p>
+<ul>
+<li>不生成文本，不做对话。</li>
+<li>不复刻 Jev 的内部结构。</li>
+<li>不追求亚毫秒延迟。那条路要走蒸馏，见 P8。</li>
+<li>不做 kime 的 HTTP 服务。DUAN 的输出格式和 kime 保持一致，需要服务时接到 kime 上，而不是另写一个服务。</li>
+</ul>
+<h2 id="2-沿用-kime-的部分"><a class="header" href="#2-沿用-kime-的部分">2. 沿用 kime 的部分</a></h2>
+<p>下面这些部分和模型结构无关，直接沿用 kime 的定义，这里不复述。按同一套定义算出来的数字，可以直接和 kime 的报告比较。</p>
+<div class="table-wrapper"><table><thead><tr><th>内容</th><th>kime 的出处</th><th>DUAN 里的位置</th></tr></thead><tbody>
+<tr><td>请求格式，三种题型的答案字段</td><td><code>spec/03-api.md</code>、<code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
+<tr><td>置信度的两个公式（Jev 公式和熵公式）</td><td><code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
+<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td><code>spec/04-semantics.md</code></td><td>第 6 节，<code>crates/duan-calib</code></td></tr>
+<tr><td>训练数据格式、增强、防泄漏规则</td><td><code>spec/12-training.md</code>、<code>tools/data/README.md</code></td><td><code>tools/data</code></td></tr>
+<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td><code>crates/kime-eval/src/metrics.rs</code></td><td><code>crates/duan-calib</code></td></tr>
+<tr><td>适当评分规则损失、RPS</td><td><code>spec/12-training.md</code></td><td>第 6 节</td></tr>
+</tbody></table>
+</div>
+<h2 id="3-输入布局"><a class="header" href="#3-输入布局">3. 输入布局</a></h2>
+<h3 id="31-序列由三类块组成"><a class="header" href="#31-序列由三类块组成">3.1 序列由三类块组成</a></h3>
+<p>一个 state 和它上面的所有问题，排成一个序列，做一次前向：</p>
+<pre><code class="language-text">[state 块] [问题块 1] [选项段 1.1] [选项段 1.2] ... [问题块 2] [选项段 2.1] ...
+</code></pre>
+<ul>
+<li><strong>state 块：</strong> state 的 token。字符串直接分词；JSON 先压成紧凑格式（<code>,</code> 和 <code>:</code> 后不留空格，键顺序保持请求里的顺序），再分词。</li>
+<li><strong>问题块：</strong> 题型标记 <code>⟨choice⟩</code>、<code>⟨score⟩</code> 或 <code>⟨noul⟩</code>，后面接 <code>instructions</code> 的 token。</li>
+<li><strong>选项段：</strong> 一个选项的文本，后面接这一题型的结尾标记。决策头读取的是结尾标记的隐藏状态。</li>
+</ul>
+<h3 id="32-可见范围"><a class="header" href="#32-可见范围">3.2 可见范围</a></h3>
+<p>可见范围由注意力偏置 <code>bias</code> 决定：看得见的地方填 0，看不见的地方填一个很大的负数。规则如下：</p>
+<div class="table-wrapper"><table><thead><tr><th>查询所在的块</th><th>能看见</th></tr></thead><tbody>
+<tr><td>state 块</td><td>state 块中自己之前的 token（因果）</td></tr>
+<tr><td>问题块 j</td><td>整个 state 块，以及问题块 j 中自己之前的 token</td></tr>
+<tr><td>选项段 (j, i)</td><td>整个 state 块、整个问题块 j，以及选项段 (j, i) 中自己之前的 token</td></tr>
+</tbody></table>
+</div>
+<p>问题块之间互不可见，选项段之间也互不可见。所以，同一个请求里多问一个问题，不会改变其他问题的答案。这条性质正对应 kime 增强表里「Distractor questions in the same request」要达到的效果，但在 DUAN 里它由结构保证，不需要靠训练学会。</p>
+<h3 id="33-位置"><a class="header" href="#33-位置">3.3 位置</a></h3>
+<p>RoPE 位置也要随块重计：</p>
+<ul>
+<li>state 块：位置从 0 到 n-1。</li>
+<li>每个问题块：都从 n 开始。</li>
+<li>问题块 j 的每个选项段：都从 n + len(问题块 j) 开始。</li>
+</ul>
+<p>只改掩码是不够的。如果位置不重计，选项段的位置仍有先后，模型照样分得出谁排在前面。掩码和位置都改了，每个选项段的计算才和「把它单独接在前缀后面」完全一样。</p>
+<h3 id="34-由布局直接推出的三条性质"><a class="header" href="#34-由布局直接推出的三条性质">3.4 由布局直接推出的三条性质</a></h3>
+<p>这三条都是<strong>分段布局 + 位置重计</strong>的直接推论，不靠训练学会。第 4.1 节的表里也会出现这几条，但那张表比较的是<strong>五条路线各自的代价</strong>（多几次前向、要不要额外结构），不是另一套性质。</p>
+<ol>
+<li>
+<p><strong>交换两个选项，只会交换它们的 logit。</strong> 选项翻转率按构造为 0，测出来不为 0 的部分只是浮点误差。</p>
+</li>
+<li>
+<p><strong>选项可以分批前向，结果不变。</strong> 每个选项段只依赖前缀和它自己，所以超长的选项列表可以拆成几批来算，logits 相同。这与 kime-v1 的差别要分清：kime-v1 的选项段彼此看不见，但<strong>共用同一行里的所有标记</strong>，所以跨块的标记集合不同、logit 尺度也不同，跨块不可比，必须靠「随机分块」增强（<code>spec/12-training.md</code>）。DUAN 的选项段之间连共享标记都没有，任何分块下每段的计算都与单独前向一致，不需要这项增强。</p>
+<p>注意「结果不变」的严格程度：批形状改变会改变矩阵乘的归约顺序，所以只保证数值等价到浮点误差，不保证 bit-exact。</p>
+</li>
+<li>
+<p><strong>state 只算一次。</strong> state 块的 KV 只依赖 state 本身，可以缓存下来，供同一 state 上后来的问题复用（第 7 节）。</p>
+</li>
+</ol>
+<p>这三条合起来就是「一次前向、逐项打分」：一次前向是把各段拼在一个张量里（工程），逐项打分是各段互不可见、位置重计（数学）。两者不矛盾，前者省的是重复的权重加载和前缀计算，不是把 $k$ 次计算变成 1 次。推导见 <a href="learn/encoder-decoder.html">learn/encoder-decoder.md</a> 第 6 节的块对角矩阵。</p>
+<p>代价是选项之间不能直接比较，候选集只通过 softmax 归一化起作用。<strong>这不影响 argmax</strong>：softmax 单调，$\arg\max_k z_k$ 与归一化无关。丢掉的是「看到候选集据此调整打分策略」这份信息，不是「选出最好的那个」这个能力。如果某类问题确实需要联合比较，只对排名靠前的几个选项做一次联合打分，不退回顺序拼接。这一点要等到出现具体需求时再设计。推导见 <a href="learn/encoder-decoder.html">learn/encoder-decoder.md</a> 第 7.1 节。</p>
+<h3 id="35-三种题型怎么渲染"><a class="header" href="#35-三种题型怎么渲染">3.5 三种题型怎么渲染</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>题型</th><th>选项段</th><th>结尾标记</th></tr></thead><tbody>
+<tr><td>choice</td><td><code>label: description</code>，没有 description 时只写 label</td><td><code>⟨opt⟩</code></td></tr>
+<tr><td>score</td><td>第 i 档的 criteria 文本，不写档位序号</td><td><code>⟨lvl⟩</code></td></tr>
+<tr><td>noul</td><td>两段：「不成立」一段和「成立」一段，各自的 criteria 文本可以为空</td><td>分别是 <code>⟨no⟩</code> 和 <code>⟨yes⟩</code></td></tr>
+</tbody></table>
+</div>
+<p>需要说明的几点：</p>
+<ul>
+<li>score 的选项段不写序号，各段的位置又都相同，模型看不出档位顺序。顺序信息由第 5 节的序数嵌入提供。调用方把档位倒过来传，得到的应该是倒过来的分布，而不是另一个判断。</li>
+<li>noul 不插入 "true"、"false" 这样的词，极性只由 <code>⟨no⟩</code> 和 <code>⟨yes⟩</code> 两个标记区分。这样可以修掉 Laya 跟着标签字面走的缺陷（Laya issue #156）。</li>
+<li>用户文本中如果出现标记的字面写法，渲染时替换成空格，防止伪造标记。</li>
+</ul>
+<h3 id="36-标记-token"><a class="header" href="#36-标记-token">3.6 标记 token</a></h3>
+<p>一共有 7 个标记：<code>⟨choice⟩</code>、<code>⟨score⟩</code>、<code>⟨noul⟩</code>、<code>⟨opt⟩</code>、<code>⟨lvl⟩</code>、<code>⟨no⟩</code>、<code>⟨yes⟩</code>。截断时用的 <code>⟨cut⟩</code> 另算。</p>
+<p>Qwen3-0.6B 的嵌入矩阵有 151,936 行，而分词器只用到大约 151,669 个 id，后面空着的行可以拿来放新标记，不需要扩词表。</p>
+<ul>
+<li>这些 id 分词器不会产生，所以用户文本无法拼出一个标记。</li>
+<li>新标记的嵌入初始化为普通 token 嵌入的均值，再加 std 0.02 的噪声，然后在训练中学习。</li>
+</ul>
+<p><strong>待定（P3）：</strong> 用分词器确认实际用到的 id 数和空行范围，然后在这里写死每个标记的 id。</p>
+<h3 id="37-长度预算"><a class="header" href="#37-长度预算">3.7 长度预算</a></h3>
+<p>先沿用 kime native 家族的预算：</p>
+<div class="table-wrapper"><table><thead><tr><th>内容</th><th>预算</th></tr></thead><tbody>
+<tr><td>每个选项</td><td>64 个 token</td></tr>
+<tr><td>instructions</td><td>512 个 token</td></tr>
+<tr><td>每个问题的选项数</td><td>255 个（默认；开 <code>kime.shortlist</code> 可到 4096）</td></tr>
+</tbody></table>
+</div>
+<p>超出预算的部分从尾部截断，并在截断处放一个 <code>⟨cut⟩</code>。</p>
+<p><strong>待定（P3）：</strong> state 的预算。按中文数据在 Qwen3 分词器下的长度分布来定，上限是模型的 32,768。</p>
+<h2 id="4-主干"><a class="header" href="#4-主干">4. 主干</a></h2>
+<h3 id="41-为什么是因果解码器"><a class="header" href="#41-为什么是因果解码器">4.1 为什么是因果解码器</a></h3>
+<p>第 3 节那套布局，说到底只要求一件事：<strong>state 段的表示不能依赖问题或选项，选项段之间不能互相看见。</strong></p>
+<p>为什么？因为只有这样，state 才能算一次就被复用，选项才能各自独立打分。这两条是 P4 和 P8 的基础。</p>
+<p><strong>注意这个要求是段级的，不是 token 级的。</strong> 有两种办法能做到：</p>
+<ul>
+<li><strong>靠因果注意力</strong>（E 方案）：state 的 token 本来就看不在它后面的东西，问题块排在它后面，天然看不到。</li>
+<li><strong>靠分段掩码</strong>（D 方案）：双向注意力加 mask，让 state 段只在自己内部互相可见。段内仍是双向的，但<strong>加一个选项不会改写 state 段</strong>，缓存照样成立。</li>
+</ul>
+<p>所以 D 在原理上完全可行。它的代价不在原理，在工程——要自己写 mask 和位置重计，而且权重是按 MLM 训出来的，没在这种可见范围下待过。</p>
+<p>真正做不到的是<strong>不加任何掩码</strong>的双向注意力：只要某个 token 能看见它后面的 token，加一个选项就会改写前面选项的表示。这就是 Laya compat（A 方案）的处境。</p>
+<p>在这个约束下，五条路线各自的代价：</p>
+<div class="table-wrapper"><table><thead><tr><th>方案</th><th>每个问题的前向</th><th>打分</th><th>state 编码次数</th><th>选项位置偏差</th><th>state 能否复用</th><th>需要的额外结构</th></tr></thead><tbody>
+<tr><td>A. 沿用 Laya compat（ModernBERT，全序列一次前向）</td><td>1</td><td>listwise</td><td>每问题 1 次</td><td>有，实测翻转率 0.0013–0.160</td><td>否</td><td>无，但三条性质一条都不成立</td></tr>
+<tr><td>B. 标准编码器逐项打分</td><td>k（每选项 1 次）</td><td>pointwise</td><td>k 次</td><td>无</td><td>否</td><td>无</td></tr>
+<tr><td>C. kime-v1 拆分编码器</td><td>1（每 32 个选项一块）</td><td>介于两者之间：段间互不可见，但共用标记可互比</td><td>1 次</td><td>无</td><td>是，状态缓存</td><td>state 塔、问题塔、cross-attention、蒸馏</td></tr>
+<tr><td>D. 编码器加自定义分段掩码</td><td>1</td><td>pointwise</td><td>1 次</td><td>无</td><td>是</td><td>手写段级掩码与位置重计；权重没在这种可见范围下训过</td></tr>
+<tr><td><strong>E. Qwen3-0.6B-Base 因果解码器（采用）</strong></td><td>1</td><td>pointwise</td><td>1 次</td><td>按构造为 0</td><td>是，由结构白送</td><td>只需 <code>forward_with(ids, positions, bias, caches)</code></td></tr>
+</tbody></table>
+</div>
+<p>表里「前向」和「打分」是两列，不要连起来读：B 慢是因为每个选项单独前向；A 快是因为把选项塞进了同一个序列，代价是选项互相看得见。E 两者兼得——它用分段掩码把「塞进同一序列」和「互不可见」同时做到了。但注意<strong>计算量没省</strong>，省的是重复的权重加载和前缀计算。</p>
+<p>逐条说为什么这样选：</p>
+<ul>
+<li><strong>A 不行，它的代价是结构性的。</strong> state 和问题从第 0 层就互相可见，什么都缓存不下来。实测同一 state 上问题数 1 → 10，耗时 7.3 倍（P0 实测记录）——而 P8 的验收标准就是用这个场景，说明它不是边界情况。</li>
+<li><strong>B 不行，成本随选项数线性增长。</strong> 每个选项一次完整前向，长 state 被重复编码 k 次，而 k 最大到 255（第 3.7 节）。</li>
+<li><strong>C 可行，但要付两次钱。</strong> 它靠多一套结构和教师蒸馏把「state 只算一次」换回来（kime <code>spec/05-model.md</code> 的 Why a split），代价是 state 的表示不能随问题调整。这个精度损失要等实测才知道。kime 愿意付，是因为它要在同一套 ModernBERT 权重上和 Laya 对拍；DUAN 没有这个包袱。</li>
+<li><strong>D 原理上可行，但它是在编码器里手工重建因果结构。</strong> 加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</li>
+<li><strong>E 是唯一「布局直接落地、不需要额外结构」的一条。</strong> 第 3.4 节那三条性质都是它的推论，而不是需要训练才能学会的行为。</li>
+</ul>
+<p>这条选择的两个前提，要分清哪个已经确定、哪个还要检验：</p>
+<ul>
+<li><strong>结构收益是确定的。</strong> 前向次数、state 复用、置换不变性都可以从第 3 节直接推出来，与权重无关。</li>
+<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，P4 就是用来检验它的（<a href="plan.html">plan.md</a> 的「风险」）。输了照实报告差距，并重新评估这个选择。</li>
+</ul>
+<p>代价有三条，都写进了验收或后续阶段，不是遗留问题：</p>
+<ul>
+<li><strong>选项之间不能直接比较。</strong> 候选集只通过 softmax 归一化起作用（第 3.4 节）。出现确实需要联合比较的题型时，只对排名靠前的几个选项加一次联合打分，不退回顺序拼接。</li>
+<li><strong>解码器不是判别模型。</strong> 它是 CLM 预训练，某个位置的隐藏状态本质上是「下一个 token 会是什么」的中间量，所以要读选项文本之后的位置（第 3.5 节的结尾标记），并且必须微调，不能指望零样本。零样本读法机制成立但很脆，只作参考：<code>tools/ref/qwen_zero_probe.py</code>，实测与四个陷阱见 P0 实测记录。</li>
+<li><strong>规模是被算出来的，不是拍的。</strong> 0.6B 对应 plan.md 的延迟上限（GPU 个位数毫秒）和 24 GB 硬件能全量微调。后一条是<strong>估算</strong>：FP32 权重、梯度、AdamW 状态合计约 10 GB，这只覆盖参数相关的部分，<strong>不含激活值和注意力矩阵</strong>；实际可用 batch size 要等 P4 用真实的 state/选项长度测出来，见第 8 节的待定项。</li>
+</ul>
+<p>推导过程的教学版本见 <a href="learn/encoder-decoder.html">learn/encoder-decoder.md</a>：从一个客服工单的例子讲起，可见矩阵、块对角矩阵为什么能同时是「一次前向」和「逐项打分」，以及四种布局的对照。</p>
+<h3 id="42-结构与参数"><a class="header" href="#42-结构与参数">4.2 结构与参数</a></h3>
+<p>主干是 <code>Qwen/Qwen3-0.6B-Base</code>，在 <code>crates/duan-qwen</code> 中用 Burn 从零实现：</p>
+<ul>
+<li>28 层，隐藏维度 1024；</li>
+<li>GQA：16 个查询头、8 个 KV 头，head_dim 128；</li>
+<li>在每个头上做 QK-norm；</li>
+<li>RoPE，θ = 1,000,000，rotate-half 约定；</li>
+<li>RMSNorm，eps 1e-6；</li>
+<li>SwiGLU 前馈，中间维度 3072；</li>
+<li>所有线性层都没有偏置，输入输出共享嵌入。</li>
+</ul>
+<p>接口：</p>
+<ul>
+<li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
+<li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
+</ul>
+<p>权重由 <code>duan_qwen::load</code> 从 HF 的 safetensors 加载：</p>
+<ul>
+<li>BF16 转成 FP32；</li>
+<li>线性层权重从 <code>[out, in]</code> 转置成 <code>[in, out]</code>；</li>
+<li>缺参数、多参数或形状不对，都会报错，并在错误里写出参数名。</li>
+</ul>
+<p>指令版 <code>Qwen/Qwen3-0.6B</code> 和主干形状相同，只用作零样本参考。</p>
+<h2 id="5-决策头"><a class="header" href="#5-决策头">5. 决策头</a></h2>
+<p>对问题 j 的第 i 个选项段，取结尾标记位置的最终隐藏状态 h_i（维度 d = 1024），然后：</p>
+<pre><code class="language-text">m_i = h_i + ord_emb(i, k)            只对 score 加
+z_i = W_b · GELU(W_a · LN(m_i)) + b_type
+p   = softmax(z / T)                 只在同一个问题的 k 个选项之间归一化
+</code></pre>
+<p>各部分的形状和初始化：</p>
+<ul>
+<li><code>W_a</code> 是 [d, d]，<code>W_b</code> 是 [1, d]，<code>b_type</code> 是 [3]，每种题型一个偏置。</li>
+<li><code>ord_emb(i, k)</code> 是一个线性映射，输入是 4 个特征 <code>[i/(k-1), (i/(k-1))^2, sin(π·i/(k-1)), cos(π·i/(k-1))]</code>，输出维度是 d。这和 kime-v1 相同。</li>
+<li>新权重都按 std 0.02 初始化，<code>W_b</code> 和 <code>b_type</code> 初始化为 0。这样训练开始时所有选项的 logit 相等，概率是均匀分布。</li>
+</ul>
+<p><strong>从 p 得到答案字段，按 kime <code>spec/04-semantics.md</code>：</strong></p>
+<ul>
+<li><strong>choice：</strong> <code>choice = argmax p</code>。<code>confidence</code> 默认用 Jev 公式 <code>clip((max p − 1/k) / (1 − 1/k))</code>，也可以选熵公式 <code>1 − H(p)/ln k</code>。</li>
+<li><strong>score：</strong> <code>score = Σ i·p_i</code>，<code>confidence</code> 用 Jev 的平均绝对偏差形式。</li>
+<li><strong>noul：</strong> <code>noul = p[1]</code>，默认不输出 <code>confidence</code>。</li>
+</ul>
+<p>三者都带 <code>action.act_probability</code>（Laya compat 响应）或 <code>kime.answers.&lt;id&gt;.action.act_probability</code>（扩展块）。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 在 P6 训练一个置信度头，AUROC 不高于 max(p) 就不发布它（P6 完成标准）。</p>
+<p><strong>待定（P4）：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先按 kime 加在输出端，P4 做一次对照。</p>
+<h2 id="6-训练与校准"><a class="header" href="#6-训练与校准">6. 训练与校准</a></h2>
+<p><strong>损失，每个问题一项：</strong></p>
+<pre><code class="language-text">L = ProperScoreLoss(p, t) + w_ord · RPS(p, t)    RPS 只用于 score，w_ord = 1.0
+ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i) / ||p||_2 )
+</code></pre>
+<p>这和 kime 的定义一致。DUAN 没有教师模型，也没有拆成两个塔，所以 kime 的 KD 项、隐藏状态蒸馏项和 shortlist 项都不用。P4 对比 proper、ce、pg 三种损失，结论写回这一节。</p>
+<p><strong>增强：</strong> 沿用 kime 增强表中和结构有关的几项：</p>
+<ul>
+<li>打乱 choice 选项的顺序；</li>
+<li>把 score 的档位镜像（50%）；</li>
+<li>随机改写 noul 的 criteria 措辞（30%）；</li>
+<li>把选项标签换成中性 id（20%）；</li>
+<li>随机截断（10%）。</li>
+</ul>
+<p>「随机分块」和「同一请求中的干扰问题」两项不需要做，原因见第 3.2 节和第 3.4 节。</p>
+<p><strong>优化：</strong></p>
+<ul>
+<li>AdamW，β = (0.9, 0.98)，weight decay 0.01；</li>
+<li>学习率：新权重 1e-4，主干 3e-5，2% warmup，余弦衰减；</li>
+<li>梯度裁剪 1.0。</li>
+</ul>
+<p><strong>待定（P4）：</strong> 只训练顶部 N 层，还是全量训练。在 24 GB 级别的硬件上两种都跑一遍，比较指标和显存。</p>
+<p><strong>校准：</strong></p>
+<ul>
+<li>P1 先在留出集上拟合一个温度 T。</li>
+<li>P6 改成按（题型、k 桶、语言组）分桶拟合，写出 kime 格式的 <code>calibration.json</code>。</li>
+<li>拟合时和推理时用同一个裁剪范围 [0.25, 8.0]。</li>
+<li>校准只在人工标注的数据上报告。</li>
+</ul>
+<h2 id="7-推理与缓存"><a class="header" href="#7-推理与缓存">7. 推理与缓存</a></h2>
+<p><strong>先把「前缀」的两个层级分清</strong>，否则会误以为同一 state 上的所有问题能共享整段前缀：</p>
+<div class="table-wrapper"><table><thead><tr><th>层级</th><th>包含</th><th>复用范围</th></tr></thead><tbody>
+<tr><td>一次前向内的前缀</td><td>state 块 + <strong>所属问题块</strong></td><td>同一问题上，它的所有选项段共享</td></tr>
+<tr><td>跨请求的缓存</td><td><strong>只有 state 块</strong></td><td>同一 state 上的后续请求直接读 KV</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>state 块做一次前向后，KV 缓存下来。同一 state 上后来的问题，只需要计算各自的<strong>问题块</strong>和选项段，<code>forward_with</code> 的 <code>caches</code> 参数负责这件事。问题块本身<strong>不跨请求缓存</strong>：它随问题内容变化，每个请求重算。</li>
+<li><code>KvCache::len()</code> 是新 token 在 <code>bias</code> 中的列偏移，而不是新 token 的 RoPE 位置。两者在选项段里不同：每段的 RoPE 位置都从 <code>n + len(问题块)</code> 重新开始。</li>
+<li>正确性以 <code>flex</code> 后端上的 FP32 为准，<code>metal</code> 和 <code>cuda</code> 后端先和它对齐。</li>
+<li>量化（bf16、int8）放到 P8，以 argmax 翻转率作为验收指标。</li>
+</ul>
+<h2 id="8-待定事项"><a class="header" href="#8-待定事项">8. 待定事项</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>事项</th><th>由谁定</th><th>怎么定</th></tr></thead><tbody>
+<tr><td>标记的 id</td><td>P3</td><td>用分词器确认空行的范围</td></tr>
+<tr><td>state 的长度预算</td><td>P3</td><td>统计中文数据在 Qwen3 分词器下的长度分布</td></tr>
+<tr><td>只训顶部 N 层还是全量训练</td><td>P4</td><td>两种都跑，至少 3 个种子</td></tr>
+<tr><td><strong>全量微调在 24 GB 上的实际 batch size</strong></td><td>P4</td><td>目前只有参数侧的 10 GB 估算，激活值未计入。在真实 state/选项长度下测显存峰值，再定这个结论是否成立</td></tr>
+<tr><td>序数嵌入加在输入端还是输出端</td><td>P4</td><td>score 题上的 RPS 和镜像一致性</td></tr>
+<tr><td>损失：proper、ce 还是 pg</td><td>P4</td><td>比较 NLL 和 ECE</td></tr>
+<tr><td>标记放在选项前面的布局</td><td>P4</td><td>只作为对照组，用来证明第 3.4 节的性质，不会被采用</td></tr>
+<tr><td><strong>单次前向的最大选项数</strong></td><td>P3</td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用 kime native 的预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
+</tbody></table>
+</div>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../docs/plan.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../docs/plan.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

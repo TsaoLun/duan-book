@@ -1,0 +1,1402 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>DUAN</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="duan"><a class="header" href="#duan">DUAN</a></h1>
+<p>一个不生成文本的决策模型。</p>
+<p>给它一段 state（一封邮件、一张工单、一份 JSON）和一组问题，它直接输出校准过的概率，而不是写一段回答。问题有三种：多选一、有序打分、判断真假。主干用 Qwen3-0.6B，用 <a href="https://burn.dev">Burn</a> 从零实现，重点场景是中文。</p>
+<p>这个站是这个项目的公开笔记：设计怎么定的、机制为什么是这样、实测看到了什么。源码仓库目前是私有的。</p>
+<h2 id="从哪读起"><a class="header" href="#从哪读起">从哪读起</a></h2>
+<p><strong>想知道这个模型长什么样</strong>，读<a href="docs/design.html">设计规格</a>。它讲清了输入布局、主干选型、决策头、训练与校准，以及每一处的取舍。</p>
+<p><strong>想知道为什么选因果解码器</strong>，读<a href="docs/learn/encoder-decoder.html">编码器与解码器做决策的差别</a>。这是整个项目最关键的一篇：从一个客服工单的例子讲起，一路推到分段布局为什么能同时做到「一次前向」和「逐项打分」。</p>
+<p><strong>想看数据</strong>，读两篇实测：<a href="experiments/2026-11-02-p0-kime-baseline/index.html">P0 基线</a>把 Laya 的三个缺陷都量了出来；<a href="experiments/2026-11-04-p0-club-counterfactual/index.html">反事实对照</a>是一个更尖锐的测试。</p>
+<p><strong>只想知道词是什么意思</strong>，<a href="docs/learn/glossary.html">术语表</a>一页够了。</p>
+<h2 id="三句话概括"><a class="header" href="#三句话概括">三句话概括</a></h2>
+<ul>
+<li><strong>主干是 <code>Qwen/Qwen3-0.6B-Base</code>。</strong> 对照组是用同一批数据、同一个损失微调的 laya-multilingual。</li>
+<li><strong>一次前向回答一个 state 上的所有问题。</strong> 选项段之间互不可见、位置重计，所以交换两个选项只会交换两个 logit，state 的 KV 还能缓存复用。</li>
+<li><strong>概率要校准。</strong> 接口语义、损失、校准契约和指标都沿用 <a href="https://github.com/tamnd/kime">kime</a>，数字可以直接和 kime 的报告比。</li>
+</ul>
+<h2 id="关于这些数字"><a class="header" href="#关于这些数字">关于这些数字</a></h2>
+<p>这个项目的几乎所有数字都标了出处和测量条件。没标条件的数字不要引用——它们可能是设计目标，不是实测值。</p>
+<p>如果发现哪里对不上，那就是文档的问题，不是来源的问题。这个站的目标是每个数字都能追到一行原始记录。</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="duan-模型规格"><a class="header" href="#duan-模型规格">DUAN 模型规格</a></h1>
+<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。<a href="docs/plan.html">plan.md</a> 的每个里程碑都是为了把这里的某一节做出来，learn/ 的每个学习单元都是为了能看懂、做出某一节。</p>
+<p>规格里写「待定」的地方，都注明由哪个阶段的哪个实验来定。实验定下来以后改这份文档，不另写。</p>
+<h2 id="1-目标与非目标"><a class="header" href="#1-目标与非目标">1. 目标与非目标</a></h2>
+<p><strong>目标：</strong> 一个中文为主的 System One 决策模型。输入一段 state 和若干问题（choice、score、noul），一次前向输出每个问题的校准概率。</p>
+<p>终点的验收标准，也就是 P4 的完成标准：</p>
+<ul>
+<li>在中文评测集上，NLL 和 ECE 优于用同一批数据、同样损失微调的 laya-multilingual；</li>
+<li>至少 3 个随机种子；</li>
+<li>选项翻转率接近 0，剩下的只是浮点误差。</li>
+</ul>
+<p><strong>非目标：</strong></p>
+<ul>
+<li>不生成文本，不做对话。</li>
+<li>不复刻 Jev 的内部结构。</li>
+<li>不追求亚毫秒延迟。那条路要走蒸馏，见 P8。</li>
+<li>不做 kime 的 HTTP 服务。DUAN 的输出格式和 kime 保持一致，需要服务时接到 kime 上，而不是另写一个服务。</li>
+</ul>
+<h2 id="2-沿用-kime-的部分"><a class="header" href="#2-沿用-kime-的部分">2. 沿用 kime 的部分</a></h2>
+<p>下面这些部分和模型结构无关，直接沿用 kime 的定义，这里不复述。按同一套定义算出来的数字，可以直接和 kime 的报告比较。</p>
+<div class="table-wrapper"><table><thead><tr><th>内容</th><th>kime 的出处</th><th>DUAN 里的位置</th></tr></thead><tbody>
+<tr><td>请求格式，三种题型的答案字段</td><td><code>spec/03-api.md</code>、<code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
+<tr><td>置信度的两个公式（Jev 公式和熵公式）</td><td><code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
+<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td><code>spec/04-semantics.md</code></td><td>第 6 节，<code>crates/duan-calib</code></td></tr>
+<tr><td>训练数据格式、增强、防泄漏规则</td><td><code>spec/12-training.md</code>、<code>tools/data/README.md</code></td><td><code>tools/data</code></td></tr>
+<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td><code>crates/kime-eval/src/metrics.rs</code></td><td><code>crates/duan-calib</code></td></tr>
+<tr><td>适当评分规则损失、RPS</td><td><code>spec/12-training.md</code></td><td>第 6 节</td></tr>
+</tbody></table>
+</div>
+<h2 id="3-输入布局"><a class="header" href="#3-输入布局">3. 输入布局</a></h2>
+<h3 id="31-序列由三类块组成"><a class="header" href="#31-序列由三类块组成">3.1 序列由三类块组成</a></h3>
+<p>一个 state 和它上面的所有问题，排成一个序列，做一次前向：</p>
+<pre><code class="language-text">[state 块] [问题块 1] [选项段 1.1] [选项段 1.2] ... [问题块 2] [选项段 2.1] ...
+</code></pre>
+<ul>
+<li><strong>state 块：</strong> state 的 token。字符串直接分词；JSON 先压成紧凑格式（<code>,</code> 和 <code>:</code> 后不留空格，键顺序保持请求里的顺序），再分词。</li>
+<li><strong>问题块：</strong> 题型标记 <code>⟨choice⟩</code>、<code>⟨score⟩</code> 或 <code>⟨noul⟩</code>，后面接 <code>instructions</code> 的 token。</li>
+<li><strong>选项段：</strong> 一个选项的文本，后面接这一题型的结尾标记。决策头读取的是结尾标记的隐藏状态。</li>
+</ul>
+<h3 id="32-可见范围"><a class="header" href="#32-可见范围">3.2 可见范围</a></h3>
+<p>可见范围由注意力偏置 <code>bias</code> 决定：看得见的地方填 0，看不见的地方填一个很大的负数。规则如下：</p>
+<div class="table-wrapper"><table><thead><tr><th>查询所在的块</th><th>能看见</th></tr></thead><tbody>
+<tr><td>state 块</td><td>state 块中自己之前的 token（因果）</td></tr>
+<tr><td>问题块 j</td><td>整个 state 块，以及问题块 j 中自己之前的 token</td></tr>
+<tr><td>选项段 (j, i)</td><td>整个 state 块、整个问题块 j，以及选项段 (j, i) 中自己之前的 token</td></tr>
+</tbody></table>
+</div>
+<p>问题块之间互不可见，选项段之间也互不可见。所以，同一个请求里多问一个问题，不会改变其他问题的答案。这条性质正对应 kime 增强表里「Distractor questions in the same request」要达到的效果，但在 DUAN 里它由结构保证，不需要靠训练学会。</p>
+<h3 id="33-位置"><a class="header" href="#33-位置">3.3 位置</a></h3>
+<p>RoPE 位置也要随块重计：</p>
+<ul>
+<li>state 块：位置从 0 到 n-1。</li>
+<li>每个问题块：都从 n 开始。</li>
+<li>问题块 j 的每个选项段：都从 n + len(问题块 j) 开始。</li>
+</ul>
+<p>只改掩码是不够的。如果位置不重计，选项段的位置仍有先后，模型照样分得出谁排在前面。掩码和位置都改了，每个选项段的计算才和「把它单独接在前缀后面」完全一样。</p>
+<h3 id="34-由布局直接推出的三条性质"><a class="header" href="#34-由布局直接推出的三条性质">3.4 由布局直接推出的三条性质</a></h3>
+<p>这三条都是<strong>分段布局 + 位置重计</strong>的直接推论，不靠训练学会。第 4.1 节的表里也会出现这几条，但那张表比较的是<strong>五条路线各自的代价</strong>（多几次前向、要不要额外结构），不是另一套性质。</p>
+<ol>
+<li>
+<p><strong>交换两个选项，只会交换它们的 logit。</strong> 选项翻转率按构造为 0，测出来不为 0 的部分只是浮点误差。</p>
+</li>
+<li>
+<p><strong>选项可以分批前向，结果不变。</strong> 每个选项段只依赖前缀和它自己，所以超长的选项列表可以拆成几批来算，logits 相同。这与 kime-v1 的差别要分清：kime-v1 的选项段彼此看不见，但<strong>共用同一行里的所有标记</strong>，所以跨块的标记集合不同、logit 尺度也不同，跨块不可比，必须靠「随机分块」增强（<code>spec/12-training.md</code>）。DUAN 的选项段之间连共享标记都没有，任何分块下每段的计算都与单独前向一致，不需要这项增强。</p>
+<p>注意「结果不变」的严格程度：批形状改变会改变矩阵乘的归约顺序，所以只保证数值等价到浮点误差，不保证 bit-exact。</p>
+</li>
+<li>
+<p><strong>state 只算一次。</strong> state 块的 KV 只依赖 state 本身，可以缓存下来，供同一 state 上后来的问题复用（第 7 节）。</p>
+</li>
+</ol>
+<p>这三条合起来就是「一次前向、逐项打分」：一次前向是把各段拼在一个张量里（工程），逐项打分是各段互不可见、位置重计（数学）。两者不矛盾，前者省的是重复的权重加载和前缀计算，不是把 $k$ 次计算变成 1 次。推导见 <a href="docs/learn/encoder-decoder.html">learn/encoder-decoder.md</a> 第 6 节的块对角矩阵。</p>
+<p>代价是选项之间不能直接比较，候选集只通过 softmax 归一化起作用。<strong>这不影响 argmax</strong>：softmax 单调，$\arg\max_k z_k$ 与归一化无关。丢掉的是「看到候选集据此调整打分策略」这份信息，不是「选出最好的那个」这个能力。如果某类问题确实需要联合比较，只对排名靠前的几个选项做一次联合打分，不退回顺序拼接。这一点要等到出现具体需求时再设计。推导见 <a href="docs/learn/encoder-decoder.html">learn/encoder-decoder.md</a> 第 7.1 节。</p>
+<h3 id="35-三种题型怎么渲染"><a class="header" href="#35-三种题型怎么渲染">3.5 三种题型怎么渲染</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>题型</th><th>选项段</th><th>结尾标记</th></tr></thead><tbody>
+<tr><td>choice</td><td><code>label: description</code>，没有 description 时只写 label</td><td><code>⟨opt⟩</code></td></tr>
+<tr><td>score</td><td>第 i 档的 criteria 文本，不写档位序号</td><td><code>⟨lvl⟩</code></td></tr>
+<tr><td>noul</td><td>两段：「不成立」一段和「成立」一段，各自的 criteria 文本可以为空</td><td>分别是 <code>⟨no⟩</code> 和 <code>⟨yes⟩</code></td></tr>
+</tbody></table>
+</div>
+<p>需要说明的几点：</p>
+<ul>
+<li>score 的选项段不写序号，各段的位置又都相同，模型看不出档位顺序。顺序信息由第 5 节的序数嵌入提供。调用方把档位倒过来传，得到的应该是倒过来的分布，而不是另一个判断。</li>
+<li>noul 不插入 "true"、"false" 这样的词，极性只由 <code>⟨no⟩</code> 和 <code>⟨yes⟩</code> 两个标记区分。这样可以修掉 Laya 跟着标签字面走的缺陷（Laya issue #156）。</li>
+<li>用户文本中如果出现标记的字面写法，渲染时替换成空格，防止伪造标记。</li>
+</ul>
+<h3 id="36-标记-token"><a class="header" href="#36-标记-token">3.6 标记 token</a></h3>
+<p>一共有 7 个标记：<code>⟨choice⟩</code>、<code>⟨score⟩</code>、<code>⟨noul⟩</code>、<code>⟨opt⟩</code>、<code>⟨lvl⟩</code>、<code>⟨no⟩</code>、<code>⟨yes⟩</code>。截断时用的 <code>⟨cut⟩</code> 另算。</p>
+<p>Qwen3-0.6B 的嵌入矩阵有 151,936 行，而分词器只用到大约 151,669 个 id，后面空着的行可以拿来放新标记，不需要扩词表。</p>
+<ul>
+<li>这些 id 分词器不会产生，所以用户文本无法拼出一个标记。</li>
+<li>新标记的嵌入初始化为普通 token 嵌入的均值，再加 std 0.02 的噪声，然后在训练中学习。</li>
+</ul>
+<p><strong>待定（P3）：</strong> 用分词器确认实际用到的 id 数和空行范围，然后在这里写死每个标记的 id。</p>
+<h3 id="37-长度预算"><a class="header" href="#37-长度预算">3.7 长度预算</a></h3>
+<p>先沿用 kime native 家族的预算：</p>
+<div class="table-wrapper"><table><thead><tr><th>内容</th><th>预算</th></tr></thead><tbody>
+<tr><td>每个选项</td><td>64 个 token</td></tr>
+<tr><td>instructions</td><td>512 个 token</td></tr>
+<tr><td>每个问题的选项数</td><td>255 个（默认；开 <code>kime.shortlist</code> 可到 4096）</td></tr>
+</tbody></table>
+</div>
+<p>超出预算的部分从尾部截断，并在截断处放一个 <code>⟨cut⟩</code>。</p>
+<p><strong>待定（P3）：</strong> state 的预算。按中文数据在 Qwen3 分词器下的长度分布来定，上限是模型的 32,768。</p>
+<h2 id="4-主干"><a class="header" href="#4-主干">4. 主干</a></h2>
+<h3 id="41-为什么是因果解码器"><a class="header" href="#41-为什么是因果解码器">4.1 为什么是因果解码器</a></h3>
+<p>第 3 节那套布局，说到底只要求一件事：<strong>state 段的表示不能依赖问题或选项，选项段之间不能互相看见。</strong></p>
+<p>为什么？因为只有这样，state 才能算一次就被复用，选项才能各自独立打分。这两条是 P4 和 P8 的基础。</p>
+<p><strong>注意这个要求是段级的，不是 token 级的。</strong> 有两种办法能做到：</p>
+<ul>
+<li><strong>靠因果注意力</strong>（E 方案）：state 的 token 本来就看不在它后面的东西，问题块排在它后面，天然看不到。</li>
+<li><strong>靠分段掩码</strong>（D 方案）：双向注意力加 mask，让 state 段只在自己内部互相可见。段内仍是双向的，但<strong>加一个选项不会改写 state 段</strong>，缓存照样成立。</li>
+</ul>
+<p>所以 D 在原理上完全可行。它的代价不在原理，在工程——要自己写 mask 和位置重计，而且权重是按 MLM 训出来的，没在这种可见范围下待过。</p>
+<p>真正做不到的是<strong>不加任何掩码</strong>的双向注意力：只要某个 token 能看见它后面的 token，加一个选项就会改写前面选项的表示。这就是 Laya compat（A 方案）的处境。</p>
+<p>在这个约束下，五条路线各自的代价：</p>
+<div class="table-wrapper"><table><thead><tr><th>方案</th><th>每个问题的前向</th><th>打分</th><th>state 编码次数</th><th>选项位置偏差</th><th>state 能否复用</th><th>需要的额外结构</th></tr></thead><tbody>
+<tr><td>A. 沿用 Laya compat（ModernBERT，全序列一次前向）</td><td>1</td><td>listwise</td><td>每问题 1 次</td><td>有，实测翻转率 0.0013–0.160</td><td>否</td><td>无，但三条性质一条都不成立</td></tr>
+<tr><td>B. 标准编码器逐项打分</td><td>k（每选项 1 次）</td><td>pointwise</td><td>k 次</td><td>无</td><td>否</td><td>无</td></tr>
+<tr><td>C. kime-v1 拆分编码器</td><td>1（每 32 个选项一块）</td><td>介于两者之间：段间互不可见，但共用标记可互比</td><td>1 次</td><td>无</td><td>是，状态缓存</td><td>state 塔、问题塔、cross-attention、蒸馏</td></tr>
+<tr><td>D. 编码器加自定义分段掩码</td><td>1</td><td>pointwise</td><td>1 次</td><td>无</td><td>是</td><td>手写段级掩码与位置重计；权重没在这种可见范围下训过</td></tr>
+<tr><td><strong>E. Qwen3-0.6B-Base 因果解码器（采用）</strong></td><td>1</td><td>pointwise</td><td>1 次</td><td>按构造为 0</td><td>是，由结构白送</td><td>只需 <code>forward_with(ids, positions, bias, caches)</code></td></tr>
+</tbody></table>
+</div>
+<p>表里「前向」和「打分」是两列，不要连起来读：B 慢是因为每个选项单独前向；A 快是因为把选项塞进了同一个序列，代价是选项互相看得见。E 两者兼得——它用分段掩码把「塞进同一序列」和「互不可见」同时做到了。但注意<strong>计算量没省</strong>，省的是重复的权重加载和前缀计算。</p>
+<p>逐条说为什么这样选：</p>
+<ul>
+<li><strong>A 不行，它的代价是结构性的。</strong> state 和问题从第 0 层就互相可见，什么都缓存不下来。实测同一 state 上问题数 1 → 10，耗时 7.3 倍（P0 实测记录）——而 P8 的验收标准就是用这个场景，说明它不是边界情况。</li>
+<li><strong>B 不行，成本随选项数线性增长。</strong> 每个选项一次完整前向，长 state 被重复编码 k 次，而 k 最大到 255（第 3.7 节）。</li>
+<li><strong>C 可行，但要付两次钱。</strong> 它靠多一套结构和教师蒸馏把「state 只算一次」换回来（kime <code>spec/05-model.md</code> 的 Why a split），代价是 state 的表示不能随问题调整。这个精度损失要等实测才知道。kime 愿意付，是因为它要在同一套 ModernBERT 权重上和 Laya 对拍；DUAN 没有这个包袱。</li>
+<li><strong>D 原理上可行，但它是在编码器里手工重建因果结构。</strong> 加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</li>
+<li><strong>E 是唯一「布局直接落地、不需要额外结构」的一条。</strong> 第 3.4 节那三条性质都是它的推论，而不是需要训练才能学会的行为。</li>
+</ul>
+<p>这条选择的两个前提，要分清哪个已经确定、哪个还要检验：</p>
+<ul>
+<li><strong>结构收益是确定的。</strong> 前向次数、state 复用、置换不变性都可以从第 3 节直接推出来，与权重无关。</li>
+<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，P4 就是用来检验它的（<a href="docs/plan.html">plan.md</a> 的「风险」）。输了照实报告差距，并重新评估这个选择。</li>
+</ul>
+<p>代价有三条，都写进了验收或后续阶段，不是遗留问题：</p>
+<ul>
+<li><strong>选项之间不能直接比较。</strong> 候选集只通过 softmax 归一化起作用（第 3.4 节）。出现确实需要联合比较的题型时，只对排名靠前的几个选项加一次联合打分，不退回顺序拼接。</li>
+<li><strong>解码器不是判别模型。</strong> 它是 CLM 预训练，某个位置的隐藏状态本质上是「下一个 token 会是什么」的中间量，所以要读选项文本之后的位置（第 3.5 节的结尾标记），并且必须微调，不能指望零样本。零样本读法机制成立但很脆，只作参考：<code>tools/ref/qwen_zero_probe.py</code>，实测与四个陷阱见 P0 实测记录。</li>
+<li><strong>规模是被算出来的，不是拍的。</strong> 0.6B 对应 plan.md 的延迟上限（GPU 个位数毫秒）和 24 GB 硬件能全量微调。后一条是<strong>估算</strong>：FP32 权重、梯度、AdamW 状态合计约 10 GB，这只覆盖参数相关的部分，<strong>不含激活值和注意力矩阵</strong>；实际可用 batch size 要等 P4 用真实的 state/选项长度测出来，见第 8 节的待定项。</li>
+</ul>
+<p>推导过程的教学版本见 <a href="docs/learn/encoder-decoder.html">learn/encoder-decoder.md</a>：从一个客服工单的例子讲起，可见矩阵、块对角矩阵为什么能同时是「一次前向」和「逐项打分」，以及四种布局的对照。</p>
+<h3 id="42-结构与参数"><a class="header" href="#42-结构与参数">4.2 结构与参数</a></h3>
+<p>主干是 <code>Qwen/Qwen3-0.6B-Base</code>，在 <code>crates/duan-qwen</code> 中用 Burn 从零实现：</p>
+<ul>
+<li>28 层，隐藏维度 1024；</li>
+<li>GQA：16 个查询头、8 个 KV 头，head_dim 128；</li>
+<li>在每个头上做 QK-norm；</li>
+<li>RoPE，θ = 1,000,000，rotate-half 约定；</li>
+<li>RMSNorm，eps 1e-6；</li>
+<li>SwiGLU 前馈，中间维度 3072；</li>
+<li>所有线性层都没有偏置，输入输出共享嵌入。</li>
+</ul>
+<p>接口：</p>
+<ul>
+<li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
+<li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
+</ul>
+<p>权重由 <code>duan_qwen::load</code> 从 HF 的 safetensors 加载：</p>
+<ul>
+<li>BF16 转成 FP32；</li>
+<li>线性层权重从 <code>[out, in]</code> 转置成 <code>[in, out]</code>；</li>
+<li>缺参数、多参数或形状不对，都会报错，并在错误里写出参数名。</li>
+</ul>
+<p>指令版 <code>Qwen/Qwen3-0.6B</code> 和主干形状相同，只用作零样本参考。</p>
+<h2 id="5-决策头"><a class="header" href="#5-决策头">5. 决策头</a></h2>
+<p>对问题 j 的第 i 个选项段，取结尾标记位置的最终隐藏状态 h_i（维度 d = 1024），然后：</p>
+<pre><code class="language-text">m_i = h_i + ord_emb(i, k)            只对 score 加
+z_i = W_b · GELU(W_a · LN(m_i)) + b_type
+p   = softmax(z / T)                 只在同一个问题的 k 个选项之间归一化
+</code></pre>
+<p>各部分的形状和初始化：</p>
+<ul>
+<li><code>W_a</code> 是 [d, d]，<code>W_b</code> 是 [1, d]，<code>b_type</code> 是 [3]，每种题型一个偏置。</li>
+<li><code>ord_emb(i, k)</code> 是一个线性映射，输入是 4 个特征 <code>[i/(k-1), (i/(k-1))^2, sin(π·i/(k-1)), cos(π·i/(k-1))]</code>，输出维度是 d。这和 kime-v1 相同。</li>
+<li>新权重都按 std 0.02 初始化，<code>W_b</code> 和 <code>b_type</code> 初始化为 0。这样训练开始时所有选项的 logit 相等，概率是均匀分布。</li>
+</ul>
+<p><strong>从 p 得到答案字段，按 kime <code>spec/04-semantics.md</code>：</strong></p>
+<ul>
+<li><strong>choice：</strong> <code>choice = argmax p</code>。<code>confidence</code> 默认用 Jev 公式 <code>clip((max p − 1/k) / (1 − 1/k))</code>，也可以选熵公式 <code>1 − H(p)/ln k</code>。</li>
+<li><strong>score：</strong> <code>score = Σ i·p_i</code>，<code>confidence</code> 用 Jev 的平均绝对偏差形式。</li>
+<li><strong>noul：</strong> <code>noul = p[1]</code>，默认不输出 <code>confidence</code>。</li>
+</ul>
+<p>三者都带 <code>action.act_probability</code>（Laya compat 响应）或 <code>kime.answers.&lt;id&gt;.action.act_probability</code>（扩展块）。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 在 P6 训练一个置信度头，AUROC 不高于 max(p) 就不发布它（P6 完成标准）。</p>
+<p><strong>待定（P4）：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先按 kime 加在输出端，P4 做一次对照。</p>
+<h2 id="6-训练与校准"><a class="header" href="#6-训练与校准">6. 训练与校准</a></h2>
+<p><strong>损失，每个问题一项：</strong></p>
+<pre><code class="language-text">L = ProperScoreLoss(p, t) + w_ord · RPS(p, t)    RPS 只用于 score，w_ord = 1.0
+ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i) / ||p||_2 )
+</code></pre>
+<p>这和 kime 的定义一致。DUAN 没有教师模型，也没有拆成两个塔，所以 kime 的 KD 项、隐藏状态蒸馏项和 shortlist 项都不用。P4 对比 proper、ce、pg 三种损失，结论写回这一节。</p>
+<p><strong>增强：</strong> 沿用 kime 增强表中和结构有关的几项：</p>
+<ul>
+<li>打乱 choice 选项的顺序；</li>
+<li>把 score 的档位镜像（50%）；</li>
+<li>随机改写 noul 的 criteria 措辞（30%）；</li>
+<li>把选项标签换成中性 id（20%）；</li>
+<li>随机截断（10%）。</li>
+</ul>
+<p>「随机分块」和「同一请求中的干扰问题」两项不需要做，原因见第 3.2 节和第 3.4 节。</p>
+<p><strong>优化：</strong></p>
+<ul>
+<li>AdamW，β = (0.9, 0.98)，weight decay 0.01；</li>
+<li>学习率：新权重 1e-4，主干 3e-5，2% warmup，余弦衰减；</li>
+<li>梯度裁剪 1.0。</li>
+</ul>
+<p><strong>待定（P4）：</strong> 只训练顶部 N 层，还是全量训练。在 24 GB 级别的硬件上两种都跑一遍，比较指标和显存。</p>
+<p><strong>校准：</strong></p>
+<ul>
+<li>P1 先在留出集上拟合一个温度 T。</li>
+<li>P6 改成按（题型、k 桶、语言组）分桶拟合，写出 kime 格式的 <code>calibration.json</code>。</li>
+<li>拟合时和推理时用同一个裁剪范围 [0.25, 8.0]。</li>
+<li>校准只在人工标注的数据上报告。</li>
+</ul>
+<h2 id="7-推理与缓存"><a class="header" href="#7-推理与缓存">7. 推理与缓存</a></h2>
+<p><strong>先把「前缀」的两个层级分清</strong>，否则会误以为同一 state 上的所有问题能共享整段前缀：</p>
+<div class="table-wrapper"><table><thead><tr><th>层级</th><th>包含</th><th>复用范围</th></tr></thead><tbody>
+<tr><td>一次前向内的前缀</td><td>state 块 + <strong>所属问题块</strong></td><td>同一问题上，它的所有选项段共享</td></tr>
+<tr><td>跨请求的缓存</td><td><strong>只有 state 块</strong></td><td>同一 state 上的后续请求直接读 KV</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>state 块做一次前向后，KV 缓存下来。同一 state 上后来的问题，只需要计算各自的<strong>问题块</strong>和选项段，<code>forward_with</code> 的 <code>caches</code> 参数负责这件事。问题块本身<strong>不跨请求缓存</strong>：它随问题内容变化，每个请求重算。</li>
+<li><code>KvCache::len()</code> 是新 token 在 <code>bias</code> 中的列偏移，而不是新 token 的 RoPE 位置。两者在选项段里不同：每段的 RoPE 位置都从 <code>n + len(问题块)</code> 重新开始。</li>
+<li>正确性以 <code>flex</code> 后端上的 FP32 为准，<code>metal</code> 和 <code>cuda</code> 后端先和它对齐。</li>
+<li>量化（bf16、int8）放到 P8，以 argmax 翻转率作为验收指标。</li>
+</ul>
+<h2 id="8-待定事项"><a class="header" href="#8-待定事项">8. 待定事项</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>事项</th><th>由谁定</th><th>怎么定</th></tr></thead><tbody>
+<tr><td>标记的 id</td><td>P3</td><td>用分词器确认空行的范围</td></tr>
+<tr><td>state 的长度预算</td><td>P3</td><td>统计中文数据在 Qwen3 分词器下的长度分布</td></tr>
+<tr><td>只训顶部 N 层还是全量训练</td><td>P4</td><td>两种都跑，至少 3 个种子</td></tr>
+<tr><td><strong>全量微调在 24 GB 上的实际 batch size</strong></td><td>P4</td><td>目前只有参数侧的 10 GB 估算，激活值未计入。在真实 state/选项长度下测显存峰值，再定这个结论是否成立</td></tr>
+<tr><td>序数嵌入加在输入端还是输出端</td><td>P4</td><td>score 题上的 RPS 和镜像一致性</td></tr>
+<tr><td>损失：proper、ce 还是 pg</td><td>P4</td><td>比较 NLL 和 ECE</td></tr>
+<tr><td>标记放在选项前面的布局</td><td>P4</td><td>只作为对照组，用来证明第 3.4 节的性质，不会被采用</td></tr>
+<tr><td><strong>单次前向的最大选项数</strong></td><td>P3</td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用 kime native 的预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="里程碑"><a class="header" href="#里程碑">里程碑</a></h1>
+<p>这份文档回答一个问题：<strong>接下来该做什么，怎么知道做完了。</strong></p>
+<p>每个阶段写四件事：做出什么、怎么判定做完、依赖哪些阶段、要先学哪些单元。终点的模型长什么样见 <a href="docs/design.html">design.md</a>，怎么学见 learn/README.md。</p>
+<p>完成标准尽量写成测试。先用 <code>#[ignore = "PN"]</code> 标记，实现之后去掉 <code>ignore</code>，测试通过就算完成这一项。所以随时可以问「还差多少」：</p>
+<pre><code class="language-bash">cargo test --workspace -- --ignored     # 列出的就是还没达成的标准
+</code></pre>
+<pre><code class="language-mermaid">flowchart LR
+    P0["P0 读懂设计"] --&gt; P1["P1 指标与温度"]
+    P0 --&gt; P2["P2 Qwen3 主干"]
+    P0 --&gt; P3["P3 中文数据"]
+    P1 --&gt; P4["P4 决策层与对照"]
+    P2 --&gt; P4
+    P3 --&gt; P4
+    P4 --&gt; P6["P6 分桶校准"]
+    P4 --&gt; P8["P8 state 缓存与延迟"]
+    P4 -.-&gt; P5["P5 训练性能"]
+    P4 -.-&gt; P7["P7 合成数据"]
+    P4 -.-&gt; P9["P9 用户微调"]
+</code></pre>
+<ul>
+<li><strong>主线：P1 到 P4。</strong> 做完这四个阶段就到了终点。P1、P2、P3 之间没有依赖，可以按任意顺序做。</li>
+<li><strong>补全：P6、P8。</strong> 让模型可以发布：校准可信，延迟可测。</li>
+<li><strong>可选：P5、P7、P9。</strong> 有需要再做，不影响终点。</li>
+</ul>
+<h2 id="终点"><a class="header" href="#终点">终点</a></h2>
+<p>满足 <a href="docs/design.html">design.md</a> 第 1 节的验收标准：</p>
+<ul>
+<li>在中文评测集上，NLL 和 ECE 优于用同一批数据、同样损失微调的 laya-multilingual；</li>
+<li>至少 3 个随机种子；</li>
+<li>选项翻转率接近 0。</li>
+</ul>
+<p>做不到时，在报告里如实写出差距，并重新评估选 Qwen3 的理由。这同样算完成。</p>
+<h2 id="主线"><a class="header" href="#主线">主线</a></h2>
+<h3 id="p0-读懂设计"><a class="header" href="#p0-读懂设计">P0 读懂设计</a></h3>
+<ul>
+<li><strong>产出：</strong> 学习者自己画的数据流图和可见矩阵，写在 <code>notes/</code> 里。</li>
+<li><strong>完成标准：</strong> 不看资料，讲得清 <a href="docs/design.html">design.md</a> 第 3 节的布局为什么是这样：标记为什么在选项后面，位置为什么要重计，state 为什么放最前面。还要能说出 Laya 的三个缺陷各由哪个设计来解决，以及第 4.1 节里那四条被排除的路线各付什么代价、为什么放弃。</li>
+<li><strong>依赖：</strong> 无。</li>
+<li><strong>单元：</strong> U0 到 U5。</li>
+</ul>
+<h3 id="p1-指标与温度"><a class="header" href="#p1-指标与温度">P1 指标与温度</a></h3>
+<ul>
+<li><strong>产出：</strong> <code>crates/duan-calib</code> 中的 <code>nll</code>、<code>brier</code>、<code>ece</code>，以及 <code>temperature::fit</code>。</li>
+<li><strong>完成标准：</strong> <code>cargo test -p duan-calib -- --include-ignored</code> 全部通过。其中：
+<ul>
+<li><code>metrics::tests</code> 的三个测试：和手算结果一致；</li>
+<li><code>tests/kime_parity.rs</code>：在随机数据上，和 <code>kime-eval</code> 的 ECE、Brier、NLL 相差都小于 1e-12；</li>
+<li><code>temperature::tests::fit_cools_an_overconfident_model</code>：对过度自信的 logits，拟合出的 T 大于 1，ECE 下降，T 在 [0.25, 8.0] 内。</li>
+</ul>
+</li>
+<li><strong>依赖：</strong> 无。不需要任何模型权重。</li>
+<li><strong>单元：</strong> U6 到 U8。</li>
+</ul>
+<h3 id="p2-qwen3-主干"><a class="header" href="#p2-qwen3-主干">P2 Qwen3 主干</a></h3>
+<ul>
+<li>
+<p><strong>产出：</strong> <code>crates/duan-qwen</code> 的前向，包括 <code>forward</code> 和 <code>forward_with</code>，以及 KV 缓存。权重加载器 <code>duan_qwen::load</code> 已经实现，不作为练习。</p>
+</li>
+<li>
+<p><strong>完成标准：</strong> 下面三个文件里所有 <code>#[ignore = "P2"]</code> 的测试都通过：</p>
+<ul>
+<li><code>tests/components.rs</code>：
+<ul>
+<li>RMSNorm 和手算结果一致；</li>
+<li>RoPE 和按 rotate-half 约定手算的结果一致；</li>
+<li>RoPE 在位置 0 是恒等变换，并且保持范数；</li>
+<li>旋转后的注意力分数只取决于相对位置。</li>
+</ul>
+</li>
+<li><code>tests/forward.rs</code>，用微型配置和随机权重：
+<ul>
+<li>改动后面的 token，不影响前面的输出；</li>
+<li>右填充不影响真实 token 的输出；</li>
+<li>KV 缓存增量前向和整段前向一致；</li>
+<li>分段前向和逐段单独前向相差小于 1e-4；</li>
+<li>交换两个选项段只交换它们的输出。</li>
+</ul>
+</li>
+<li><code>tests/align.rs</code>：FP32 下，嵌入层、逐层隐藏状态和最终隐藏状态都和 transformers 一致。判定标准是每个元素满足 <code>|ours − ref| ≤ 1e-4 · (1 + |ref|)</code>，相对误差那一项是给某些通道的大激活留余量。需要设置环境变量 <code>DUAN_QWEN_DIR</code>（权重目录）和 <code>DUAN_REF_DIR</code>（<code>tools/ref/qwen_ref.py</code> 的输出目录）。</li>
+</ul>
+<p>另外，能说清 Qwen3 每一处和标准 Llama 结构不同的细节。</p>
+</li>
+<li>
+<p><strong>依赖：</strong> 无。</p>
+</li>
+<li>
+<p><strong>单元：</strong> U9 到 U12。</p>
+</li>
+</ul>
+<h3 id="p3-中文数据"><a class="header" href="#p3-中文数据">P3 中文数据</a></h3>
+<ul>
+<li><strong>产出：</strong>
+<ul>
+<li><code>tools/data/sources_zh.json</code> 中至少一个许可证核实过的中文数据源，<code>convert_zh.py</code> 中对应的转换器；</li>
+<li>防泄漏去重和 manifest；</li>
+<li>一份只来自测试集的中文评测集；</li>
+<li><a href="docs/design.html">design.md</a> 第 3.6 节的标记 id 和第 3.7 节的 state 预算。</li>
+</ul>
+</li>
+<li><strong>完成标准：</strong>
+<ul>
+<li><code>kime eval &lt;suite&gt; --data-manifest &lt;manifest&gt;</code> 检查通过（至少要给一个 suite 文件，命令没有默认 suite）；</li>
+<li>每个被采用或排除的数据源，<code>license_note</code> 里都写了依据；</li>
+<li>design.md 中两个「待定（P3）」都已经填上。</li>
+</ul>
+</li>
+<li><strong>依赖：</strong> 无。都在 CPU 上完成。</li>
+<li><strong>单元：</strong> U13、U14。</li>
+</ul>
+<h3 id="p4-决策层与对照"><a class="header" href="#p4-决策层与对照">P4 决策层与对照</a></h3>
+<ul>
+<li><strong>产出：</strong>
+<ul>
+<li>新建 crate <code>duan-decide</code>：按 <a href="docs/design.html">design.md</a> 第 3 节渲染请求，生成位置和偏置，实现第 5 节的决策头和第 6 节的训练循环；</li>
+<li>第一个中文决策模型，以及 <code>experiments/</code> 下的训练报告。</li>
+</ul>
+</li>
+<li><strong>完成标准：</strong>
+<ul>
+<li><code>duan-decide</code> 的测试全部通过：
+<ul>
+<li>交换两个选项只交换它们的 logit；</li>
+<li>选项分批前向和一次前向的 logits 一致；</li>
+<li>同一请求里多加一个问题，其他问题的 logits 不变；</li>
+<li>同一问题单独算和放在批里算，结果一致。</li>
+</ul>
+</li>
+<li>报告满足<a href="docs/plan.html#%E7%BB%88%E7%82%B9">终点</a>的验收标准，并包含：
+<ul>
+<li>两个零样本参考：laya-multilingual 原版和 Qwen3 零样本；</li>
+<li>「标记放在选项前面」布局的翻转率对照；</li>
+<li>design.md 第 8 节中所有「待定（P4）」的结论。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>依赖：</strong> P1、P2、P3。</li>
+<li><strong>硬件：</strong> 24 GB 级别的硬件，见<a href="docs/plan.html#%E7%A1%AC%E4%BB%B6%E5%88%86%E7%BA%A7">硬件分级</a>。只有 CPU 的机器只能在微型配置上调通流程。</li>
+<li><strong>单元：</strong> U15 到 U17。</li>
+</ul>
+<h2 id="补全"><a class="header" href="#补全">补全</a></h2>
+<h3 id="p6-分桶校准与置信度头"><a class="header" href="#p6-分桶校准与置信度头">P6 分桶校准与置信度头</a></h3>
+<ul>
+<li><strong>产出：</strong> 按（题型、k 桶、语言组）分桶的温度，写进 kime 格式的 <code>calibration.json</code>；一个冻结主干训练的置信度头。</li>
+<li><strong>完成标准：</strong>
+<ul>
+<li>分桶前后的 ECE 写进 <code>calibration.json</code>；</li>
+<li>置信度头的 AUROC 比 max(p) 至少高 0.01，否则按 kime 的规格不发布它，<code>act_probability</code> 退回 max(p)。</li>
+</ul>
+</li>
+<li><strong>依赖：</strong> P4。</li>
+<li><strong>注意：</strong> kime 0.1.8 会静默忽略 <code>kime.policy</code> 字段，所以决策代价矩阵的阈值要自己实现，不能调用 kime 来验证。见 <a href="docs/../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测记录</a>。</li>
+</ul>
+<h3 id="p8-state-缓存与推理延迟"><a class="header" href="#p8-state-缓存与推理延迟">P8 state 缓存与推理延迟</a></h3>
+<ul>
+<li><strong>产出：</strong> 带 state 缓存的推理实现，以及一份延迟报告。</li>
+<li><strong>完成标准：</strong>
+<ul>
+<li>同一个 state 上问 10 个问题的耗时，远小于问 1 个问题的 10 倍。作为对照，Laya 实测是 7.3 倍；</li>
+<li>短 state 的单次决策，在 GPU 上达到个位数毫秒；</li>
+<li>int8 量化后，argmax 翻转率低于事先定好的阈值。</li>
+</ul>
+</li>
+<li><strong>依赖：</strong> P4。</li>
+</ul>
+<h2 id="可选"><a class="header" href="#可选">可选</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>阶段</th><th>产出</th><th>完成标准</th><th>什么时候做</th></tr></thead><tbody>
+<tr><td>P5 训练性能</td><td>PyTorch 参考训练器、剖析报告、至少一个优化</td><td>速度或峰值内存有可测量的改善，训练结果仍在种子波动范围内</td><td>P4 的训练慢到影响实验节奏时</td></tr>
+<tr><td>P7 合成数据</td><td>中文合成数据管线和成本报告</td><td>中文评测集的准确率或校准有改善，校准只在人工标注数据上报告</td><td>人工数据不够覆盖目标场景时</td></tr>
+<tr><td>P9 用户微调</td><td>只训决策头和 LoRA 两种模式，以及一个端到端中文案例</td><td>两种模式都能在 8 GB 显存内跑完，微调后自动拟合校准</td><td>要给别人用时</td></tr>
+</tbody></table>
+</div>
+<p>可选阶段开始前，先照主线阶段的格式补上产出、完成标准和单元。</p>
+<h2 id="硬件分级"><a class="header" href="#硬件分级">硬件分级</a></h2>
+<p>按能力分级，不绑定具体机器。同一份代码在所有级别上都要能跑：Burn 后端由 feature 和运行时的 <code>Device</code> 决定，Python 环境见 <a href="docs/../tools/ref/index.html">tools/ref/README.md</a>。</p>
+<div class="table-wrapper"><table><thead><tr><th>级别</th><th>例子</th><th>Burn 后端</th><th>用于</th><th>说明</th></tr></thead><tbody>
+<tr><td>只有 CPU</td><td>任意笔记本，Intel Mac</td><td><code>flex</code></td><td>P0、P1、P3，以及 P2 的 FP32 对齐</td><td>对齐慢，但可行。Intel Mac 上 torch 最高只到 2.2.2；它的 AMD 显卡没有验证过，按只有 CPU 规划</td></tr>
+<tr><td>24 GB 统一内存的 Apple Silicon</td><td>M3 24 GB</td><td><code>metal</code></td><td>P2 到 P9</td><td>统一内存和系统共用，全量微调要用小批量或梯度检查点</td></tr>
+<tr><td>24 GB 显存的 NVIDIA 显卡</td><td>RTX 4090，L4</td><td><code>cuda</code></td><td>P2 到 P9</td><td>训练最快。P5 的 CUDA 优化需要这一级</td></tr>
+<tr><td>大模型 API 预算</td><td></td><td></td><td>P7</td><td>先用几千条数据估算成本，再决定规模</td></tr>
+</tbody></table>
+</div>
+<p>0.6B 全量微调时，FP32 的权重、梯度和 AdamW 状态合计约 10 GB，再加上激活。只训顶部几层时宽裕得多。</p>
+<p>不同设备、不同后端得到的数字不能直接混在一起比较：实验记录必须写明设备、后端和精度，速度对比只在同一台机器上做。正确性以 CPU 上的 FP32 为准，其他后端先和它对齐，再用来训练。</p>
+<h2 id="风险"><a class="header" href="#风险">风险</a></h2>
+<ul>
+<li><strong>Qwen3 在中文上更强，目前只是假设。</strong> P4 的同数据对照就是用来检验它的。如果输了，照实报告差距，并按 <a href="docs/design.html">design.md</a> 第 4.1 节重新评估这个选择：那里的结构收益仍然成立，但能力收益要重新算。</li>
+<li><strong>选项之间不能直接比较。</strong> 这是分段布局的代价，见 <a href="docs/design.html">design.md</a> 第 3.4 节。只有出现确实需要比较的问题类型时，才加联合打分。</li>
+<li><strong>延迟有上限。</strong> 0.6B 在 GPU 上能做到个位数毫秒，做不到亚毫秒，在 CPU 上则是几百毫秒。需要更低延迟时，走蒸馏。</li>
+<li><strong>后端之间有差异。</strong> 不同后端的数值不会逐位相同，算子覆盖也不一样。某个后端缺算子，或结果超出误差时，记进实验目录，换后端继续；不要为了单个后端改模型代码。</li>
+<li><strong>许可证与服务条款。</strong> Qwen3-0.6B 是 Apache-2.0。每个数据集都要确认允许训练，合成数据要确认大模型的服务条款允许用输出训练分类器。拿不准的一律排除。</li>
+</ul>
+<h2 id="和-kime-的关系"><a class="header" href="#和-kime-的关系">和 kime 的关系</a></h2>
+<ul>
+<li><strong>版本差异：</strong> DUAN 使用 Burn 0.22.1，kime 固定在 0.21。向 kime 贡献代码时，需要移植回 0.21。</li>
+<li><strong>维护情况：</strong> kime 只有一位维护者。提交 PR 之前，先在相关 issue 下确认作者是否还在维护。</li>
+<li><strong>可以回馈的方向：</strong> 校准（kime #45）、中文数据源，以及 Burn 上的训练性能（kime #181）。这些都和 DUAN 的数据格式、评测保持兼容，随时可以回馈。</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="编码器与解码器做决策的差别"><a class="header" href="#编码器与解码器做决策的差别">编码器与解码器做决策的差别</a></h1>
+<p>要给选项打分，只有一件事真正决定了模型得长什么样：<strong>读分数的那个位置，看得见什么。</strong></p>
+<p>这句话听着抽象。走一遍就清楚了，我们拿一个例子从头走到尾。</p>
+<h2 id="1-一个例子"><a class="header" href="#1-一个例子">1. 一个例子</a></h2>
+<p>一封客户工单：</p>
+<blockquote>
+<p>上个月我的信用卡被扣了两次款，请立即退款。</p>
+</blockquote>
+<p>模型要回答：该转给哪个团队。三个选项：</p>
+<div class="table-wrapper"><table><thead><tr><th>选项</th><th>文本</th></tr></thead><tbody>
+<tr><td>billing</td><td>账单与退款</td></tr>
+<tr><td>sales</td><td>售前咨询与报价</td></tr>
+<tr><td>legal</td><td>合同与合规</td></tr>
+</tbody></table>
+</div>
+<p>工单正文是 state，问题是「该转给哪个团队」。模型输出的不是一段话，是三个分数。记住这封工单，下面每一步都用它。</p>
+<h2 id="2-一个位置里装了什么"><a class="header" href="#2-一个位置里装了什么">2. 一个位置里装了什么</a></h2>
+<p>打分是拿某个位置的隐藏状态过一个小网络，得到一个数。所以先得问：<strong>那个位置的隐藏状态，里面装的是啥？</strong></p>
+<p>装的是「它能看见的那些 token」压缩出来的东西。能看见谁，由注意力决定。有两种：</p>
+<ul>
+<li><strong>因果注意力</strong>（Qwen3 这类解码器）：第 i 个位置只能看见 0 到 i，也就是它自己和自己之前。</li>
+<li><strong>双向注意力</strong>（ModernBERT 这类编码器）：每个位置看得见整段。</li>
+</ul>
+<p>画出来，<code>s</code> 是工单正文，<code>q</code> 是问题，<code>o₁</code> 是 billing，<code>m</code> 是我们准备读分数的标记：</p>
+<pre><code>     因果                       双向
+        s q o₁ m                  s q o₁ m
+    s   ■ · ·  ·              s   ■ ■ ■ ■
+    q   ■ ■ ·  ·              q   ■ ■ ■ ■
+   o₁   ■ ■ ■  ·             o₁   ■ ■ ■ ■
+    m   ■ ■ ■  ■              m   ■ ■ ■ ■
+</code></pre>
+<p>左边每一行是个「到目前为止」的压缩，右边每一行是整段的一个摘要。</p>
+<p>这个差别看着小，它是后面所有事情的地基。</p>
+<h2 id="3-标记为什么要放在选项后面"><a class="header" href="#3-标记为什么要放在选项后面">3. 标记为什么要放在选项后面</a></h2>
+<p>先看右边。<code>m</code> 在末尾，能看见 <code>o₁</code>；<code>o₁</code> 也能看见 <code>m</code>。谁放哪都行。</p>
+<p>再看左边。<code>m</code> 能看见 <code>o₁</code>，因为它排在 <code>o₁</code> 后面。把 <code>m</code> 挪到前面去：</p>
+<pre><code>        s q m o₁
+    m   ■ ■ ■ ·     ← m 这一行看不见 o₁
+</code></pre>
+<p><code>m</code> 的隐藏状态里根本没有 <code>o₁</code> 的信息。拿它给 <code>o₁</code> 打分，等于蒙着眼打分。</p>
+<p><strong>所以标记必须放在选项文本后面。</strong> 这不是排版偏好，是「读分数的位置得看得见它要打分的那个选项」的直接结果。</p>
+<p>在编码器里这从来不是问题——它总是看得见全文。所以不少人从编码器换到解码器时，会照着原来的习惯把标记放前面，然后发现模型在瞎猜。原因就在这里。</p>
+<h2 id="4-选项多了会出什么事"><a class="header" href="#4-选项多了会出什么事">4. 选项多了会出什么事</a></h2>
+<p>刚才只有一个选项。现在把三个都接上，还是因果：</p>
+<pre><code>s q  m o₁  m o₂  m o₃
+</code></pre>
+<p>问一句：<code>o₁</code> 那个位置的隐藏状态里有什么？</p>
+<p>有 <code>s</code>、<code>q</code>、<code>o₁</code>。<strong>没有 <code>o₂</code> 和 <code>o₃</code></strong>——它们排在 <code>o₁</code> 后面。</p>
+<p>而 <code>o₃</code> 的隐藏状态里有 <code>s</code>、<code>q</code>、<code>o₁</code>、<code>o₂</code>、<code>o₃</code>，前面所有的东西。</p>
+<p>麻烦就在这儿：<strong>同一道题的三个选项，是在三种不同的信息条件下被打分的。</strong> 排在后面的能看见前面的，排在前面的看不见后面的。</p>
+<p>后果很具体：<strong>换个顺序，答案就可能变。</strong></p>
+<p>这个改不了。训练再多也不行——在训练集上，模型能学到「如果 billing 排在第一位，它更可能是答案」这种规律，而这条规律在真实世界里是假的，纯粹是排版造出来的。</p>
+<p>这个现象叫选项翻转率。kime 在 Laya 上测过，那是同一套权重、同一批题，只改顺序：</p>
+<div class="table-wrapper"><table><thead><tr><th>数据集</th><th>选项数</th><th>翻转率</th><th>至少翻过一次的题</th></tr></thead><tbody>
+<tr><td>XNLI</td><td>3</td><td>0.0013</td><td>0.33%</td></tr>
+<tr><td>Emotion</td><td>6</td><td>0.0477</td><td>11.0%</td></tr>
+<tr><td>MASSIVE</td><td>20</td><td>0.1600</td><td>29.7%</td></tr>
+</tbody></table>
+</div>
+<p><strong>先看清这两个指标的分母</strong>，否则会读错一倍以上：</p>
+<ul>
+<li><strong>翻转率</strong>的分母是<strong>重排副本</strong>——每道题生成若干种排列，每一种叫一个副本，统计其中有多少副本的答案和原排列不同。</li>
+<li><strong>「至少翻过一次的题」<strong>的分母才是</strong>题</strong>。</li>
+</ul>
+<p>以 MASSIVE 为例：300 道题做成 1500 个重排副本，其中 16.0% 的副本翻了；而<strong>有 29.7% 的题，至少有一种排列会翻</strong>。</p>
+<p>所以准确的说法是：<strong>MASSIVE 上 16% 的重排副本换了答案，近三成的题受影响。</strong></p>
+<p><strong>这里有个反直觉的地方：选项越多，翻转率越高，但原因不是「选项多所以乱」。</strong></p>
+<ul>
+<li><strong>Emotion 只有 6 个选项</strong>，翻转率 0.048；</li>
+<li><strong>MASSIVE 有 20 个选项</strong>，翻转率 0.160；</li>
+<li><strong>XNLI 只有 3 个选项</strong>，翻转率 0.0013。</li>
+</ul>
+<p>如果只看选项数，Emotion 的 6 个和 XNLI 的 3 个差不多，翻转率却差 37 倍。真正的差别在<strong>语义距离</strong>：XNLI 的三个类别是蕴含 / 中立 / 矛盾，彼此判然有别；Emotion 的六个情绪之间有大量重叠（joy 和 love、fear 和 surprise 常常同时成立），位置信息足以把结论推到相邻的类上。</p>
+<p><strong>同一个模型，一边是 0.13%，一边是 16%——差 120 倍。</strong> 这个指标必须按数据集看，取平均没有意义。</p>
+<p>翻转率高的那个做法，行话叫 <strong>listwise</strong>：分数依赖整个候选集，换个队友分数就变。下面编码器的做法叫 <strong>pointwise</strong>：每个选项各算各的，跟别人无关。这两个词在后面还会反复出现。</p>
+<h2 id="5-编码器怎么避开这一条"><a class="header" href="#5-编码器怎么避开这一条">5. 编码器怎么避开这一条</a></h2>
+<p>常规做法很干脆：<strong>一个选项跑一次前向。</strong></p>
+<pre><code>前向 1:  [CLS] s q o₁  →  读 [CLS] → z₁
+前向 2:  [CLS] s q o₂  →  读 [CLS] → z₂
+前向 3:  [CLS] s q o₃  →  读 [CLS] → z₃
+</code></pre>
+<p>每次只放一个选项，<code>o₂</code> 压根不在 <code>o₁</code> 那次前向里，交换顺序当然不影响任何东西。这就是编码器天然的置换不变性。</p>
+<p>代价很直接：三个选项三次前向。而且 state 那么长，每次都重新编码一遍。</p>
+<p>选项数上去就很吓人。kime 的默认上限是每问题 255 个选项（开了 <code>kime.shortlist</code> 可以到 4096），照这个做法就是 255 次完整前向，每次都把整段 state 过一遍。</p>
+<h2 id="6-解码器能不能也切开"><a class="header" href="#6-解码器能不能也切开">6. 解码器能不能也切开</a></h2>
+<p>能。这就是 DUAN 的做法。</p>
+<p>想法是把三个选项排在同一个序列里，但让它们互相看不见：</p>
+<pre><code>s q  │  o₁ m  │  o₂ m  │  o₃ m
+</code></pre>
+<p>注意力长这样：</p>
+<pre><code>           s q │ o₁ m₁ │ o₂ m₂ │ o₃ m₃
+       s   ■ · │  · ·  │  · ·  │  · ·
+       q   ■ ■ │  · ·  │  · ·  │  · ·
+      o₁   ■ ■ │  ■ ■  │  · ·  │  · ·
+      m₁   ■ ■ │  ■ ■  │  · ·  │  · ·
+      o₂   ■ ■ │  · ·  │  ■ ■  │  · ·
+      m₂   ■ ■ │  · ·  │  ■ ■  │  · ·
+      o₃   ■ ■ │  · ·  │  · ·  │  ■ ■
+      m₃   ■ ■ │  · ·  │  · ·  │  ■ ■
+</code></pre>
+<p>每一段看得见前缀 <code>s q</code>，也看得见自己，看不见别的段。中间那几块全空。</p>
+<p><strong>于是每一段的计算，和「把这一段单独接在前缀后面」一模一样。</strong> 数学上这就是三次独立的前向。</p>
+<p>但它们被打包进了同一个张量。这不是把三次算变成一次，而是<strong>把三次算合并成一批</strong>：</p>
+<div class="table-wrapper"><table><thead><tr><th>项目</th><th>分开跑三次</th><th>合并成一批</th><th>省了什么</th></tr></thead><tbody>
+<tr><td>选项段本身的矩阵乘</td><td>3 份</td><td>3 份</td><td>没省</td></tr>
+<tr><td>前缀 <code>s q</code> 的编码</td><td>3 份</td><td>1 份</td><td><strong>省 2 份</strong></td></tr>
+<tr><td>权重从显存读到计算单元</td><td>3 次</td><td>1 次</td><td><strong>省 2 次</strong></td></tr>
+<tr><td>内核启动、调度</td><td>3 次</td><td>1 次</td><td><strong>省 2 次</strong></td></tr>
+</tbody></table>
+</div>
+<p>所以「一次前向」说的是<strong>批次数</strong>，「逐项打分」说的是<strong>分数依赖谁</strong>。两句话在不同层面上，不冲突。</p>
+<p>如果只记一件事：<strong>计算量一点没少，省的全是重复的那部分</strong>——重复的前缀、重复的权重搬运、重复的调度开销。</p>
+<p>上面那张矩阵回答的是另一个问题：段与段之间全空，所以 <code>z₁</code> 不依赖 <code>o₂</code>、<code>o₃</code>，交换它俩只交换两个 logit。</p>
+<p>还有一步不能漏：<strong>位置要跟着重算。</strong></p>
+<p>模型怎么知道谁排在谁后面？靠 RoPE——旋转位置编码，把「这是第几个 token」编码进注意力的分数里。这是 Qwen3 这类模型唯一的位置信号。</p>
+<p>如果三段的 RoPE 位置还接着往下排（0,1,2,3…），模型仍然能算出「<code>o₂</code> 排在 <code>o₁</code> 后面」，那掩码就白改了。所以每段的位置都从前缀长度重新开始，三段用的是同一组位置。</p>
+<p>掩码和位置一起改，才真的等价于「单独跑」。</p>
+<p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
+<p>排除它的理由有三个，都不是「做不到」：</p>
+<ol>
+<li><strong>要自己实现。</strong> 因果模型天生就是这样，掩码是免费的。编码器的双向掩码要手写，而且 RoPE 位置重算、KV 缓存也得跟着改。</li>
+<li><strong>权重没在这种可见范围下待过。</strong> Laya 的 ModernBERT 是按 MLM 训的，训练时每个 token 都看得见全文。突然切成分段，它没见过这种条件。</li>
+<li><strong>拿不到那批预训练语料。</strong> 就算愿意重训，Qwen3 那批中文预训练数据是现成的，重新对齐一个中文 ModernBERT 不是。</li>
+</ol>
+<p>所以这是<strong>成本问题</strong>，不是原理问题。design.md 第 4.1 节的 D 方案走的正是这条路，它的定性是**「原理上可行」**，只排除在成本上：</p>
+<blockquote>
+<p>加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</p>
+</blockquote>
+<p>注意 design.md 真正「被排除」的是 A 和 B 两条（A 结构性不可行，B 成本随选项线性增长），D 只是没被选。</p>
+<h2 id="7-切开之后还剩三个问题"><a class="header" href="#7-切开之后还剩三个问题">7. 切开之后还剩三个问题</a></h2>
+<h3 id="71-选项不能互相比了还行吗"><a class="header" href="#71-选项不能互相比了还行吗">7.1 选项不能互相比了，还行吗</a></h3>
+<p>这是最让人不放心的一点。<code>o₁</code> 看不见 <code>o₂</code>，模型怎么知道在这三个里挑哪个？</p>
+<p>答案比想象的简单：<strong>选哪个只由分数大小决定，跟能不能互相比无关。</strong></p>
+<p>softmax 是单调的：</p>
+<p>$$\arg\max_k \frac{e^{z_k}}{\sum_j e^{z_j}} = \arg\max_k z_k$$</p>
+<p>三个分数都是同一把尺子量出来的——同一组权重、同一个读取位置、同样的前缀——所以它们本来就在一个尺度上，比大小就行。</p>
+<p>那「互相看得见」到底多给了什么？</p>
+<p>多给的是<strong>信息</strong>。模型知道「候选集里还有别的什么」，可以据此调整判断，比如学到「如果 legal 也在候选里，这单更可能是 billing」。这个信息切开之后就没了。</p>
+<p>这是真的损失，不是能糊弄过去的。但它不是「没法选」，是「少了一点上下文」。</p>
+<p>kime-v1 走了条中间路线，机制值得看一眼，因为它说明了「可比较性」到底靠什么实现。</p>
+<p>它的掩码规则是这样的（kime <code>spec/05-model.md</code>）：</p>
+<pre><code class="language-text">问题头 token  →  看问题头 + 所有选项的标记
+选项 body    →  看问题头 + 自己这一段 + 所有选项的标记
+选项标记     →  看问题头 + 自己这一段 + 所有标记
+</code></pre>
+<p>关键在第二行和第三行的「所有选项的标记」。<strong>选项 body 看不见别的选项的正文，但看得见每一个选项的标记。</strong></p>
+<p>打个比方：三个人分别在小房间里，看不见彼此的纸条，但能看见墙上挂着的三张标签。于是谁都能说「我这张纸条和墙上那三张标签是什么关系」，间接地把自己和同伴放在同一个坐标里。</p>
+<p>这就是「介于 pointwise 和 listwise 之间」的确切含义：</p>
+<div class="table-wrapper"><table><thead><tr><th>像 pointwise 的地方</th><th>像 listwise 的地方</th></tr></thead><tbody>
+<tr><td>选项 body 之间互不可见</td><td>都看得见同一组标记</td></tr>
+<tr><td>没有位置偏差（段位置都重算）</td><td>分数隐含依赖「这一组里还有谁」</td></tr>
+</tbody></table>
+</div>
+<p><strong>代价也随之而来。</strong> 那个「墙上的标签」是同一组，只在同一行里成立。选项超过 32 个要切块，每块是独立的一行、墙上挂的是不同的标签集合——于是<strong>跨块的分数没法直接比</strong>。所以 kime-v1 必须靠随机分块训练，让模型学会在任意分块下都给出可比的分数。</p>
+<p>DUAN 把这条路也切断了：连标记通道都不要，每段只看得见前缀和自己。换来的是任何分块下每段都独立算、跨块天然可比；付出的是候选集上下文。</p>
+<p>顺带解释一个术语：上文说的「标记通道」，指的就是「选项能看到别的选项的标记」这条信息路径。kime-v1 留着它，DUAN 切掉它。</p>
+<p><strong>分块到底会造成多大差异，可以看一个实测。</strong> 这个数字来自 kime 的 chunking 报告，不过要注意它测的是 <strong>Laya，不是 kime-v1</strong>——它是 <code>--model laya</code> 跑出来的，正文第一句写「Laya English through kime on an M4 with Metal」，结尾说「the gate is for kime-v1 (#44) and this run is its baseline」，也就是拿 Laya 当 kime-v1 的基线。</p>
+<p><strong>先说清实验设置。</strong> 300 道 banking77 题，每题 64 个选项（金标 + 63 个随机抽）。三种跑法：一次跑完，以及按 <strong>8 / 16 / 32 个一块</strong>分别跑（注意这是三种<strong>块大小</strong>，不是「切成三块」——64 个选项按 8 切是 8 块，按 32 切是 2 块）。</p>
+<div class="table-wrapper"><table><thead><tr><th>对照</th><th>一致率</th></tr></thead><tbody>
+<tr><td>一次跑 vs 块 8</td><td>0.623</td></tr>
+<tr><td>一次跑 vs 块 16</td><td>0.600</td></tr>
+<tr><td>一次跑 vs 块 32</td><td>0.593</td></tr>
+<tr><td>8 / 16 / 32 三种块大小互相之间</td><td><strong>0.790</strong></td></tr>
+</tbody></table>
+</div>
+<p><strong>这两栏都要小心读，没有一栏是「纯」的。</strong></p>
+<p><code>0.790</code> 常被当作「分块尺度问题」的干净度量，其实<strong>也混了 token 预算</strong>。因为 Laya 的拥挤规则是 <code>max(4, (head_max_len - 16) / k)</code>，<code>head_max_len</code> 是 192，于是每个选项能分到的 token 数是：</p>
+<div class="table-wrapper"><table><thead><tr><th>每块选项数</th><th>每选项 token</th></tr></thead><tbody>
+<tr><td>64（一次跑）</td><td>4</td></tr>
+<tr><td>32</td><td>5.5</td></tr>
+<tr><td>16</td><td>11</td></tr>
+<tr><td>8</td><td>22</td></tr>
+</tbody></table>
+</div>
+<p>所以 8 / 16 / 32 之间既差分块尺度，也差每选项的 token 数。报告本身也只说这是 logit 尺度的问题，没有声称这一组排除了预算因素。</p>
+<p><code>0.593–0.623</code> 那一栏混得更重——它把「一次跑（4 token）」和「分块（5.5 到 22 token）」对比，两个变量同时变了。</p>
+<p><strong>证据是分块之后准确率反而更高</strong>：banking77 的 Top-1 在一次跑时是 0.523，分块后<strong>升</strong>到 0.607–0.623。如果这个对照真在衡量「结构缺陷」，不该出现这种方向。</p>
+<p><strong>还有一个陷阱：这两组数字的区间几乎重叠，但不是一回事。</strong></p>
+<ul>
+<li>「一次跑 vs 分块的答案<strong>一致率</strong>」= 0.593–0.623</li>
+<li>「分块后的 <strong>Top-1 准确率</strong>」= 0.607–0.623</li>
+</ul>
+<p>前者衡量「两次跑答得一样不一样」，后者衡量「答得对不对」。看的时候盯指标名，不要盯数字。</p>
+<p><strong>那能从这个实验里得出什么？</strong> 只有一条是稳的：<strong>分块会改变 Laya 的答案，而且改变幅度不小。</strong> 至于其中多少来自可见性、多少来自 token 预算，这个实验分不开——需要固定 token 预算重做一次才能定。</p>
+<p>DUAN 不需要这个实验就能保证分块等价，因为它的段与段之间没有任何信息通道，任何分块下每段都独立算。这是设计的推论，不是实测结论；P4 会用「标记放在选项前面」的布局做对照，量出翻转率。</p>
+<h3 id="72-档位顺序丢了"><a class="header" href="#72-档位顺序丢了">7.2 档位顺序丢了</a></h3>
+<p>前面一直用 choice 举例。score 题不一样，值得单独说，因为它的选项有顺序。</p>
+<p>一份工单的紧急程度可以打 1 到 5 分。这五个档位本身有方向：1 分和 2 分是相邻的，1 分和 5 分是完全相反的两端。</p>
+<p>位置重算把这层顺序抹掉了——五个档位段的位置都一样，模型看不出哪个是第一档、哪个是第五档。所以要另外把顺序喂给模型：</p>
+<p>$$u_i = h_i + \mathrm{ord_emb}(i, k)$$</p>
+<p><code>i</code> 是第几档，<code>k</code> 是一共几档。这个向量是学出来的，输入四个数：<code>[i/(k-1), (i/(k-1))², sin(πi/(k-1)), cos(πi/(k-1))]</code>。kime 和 DUAN 用的是同一套。</p>
+<p><strong>加在哪里还有待定。</strong> design.md 目前先按 kime 的做法加在<strong>输出端</strong>（就是上面这个式子，$h_i$ 是标记的隐藏状态，加完再进打分器）。另一个选择是加在<strong>输入端</strong>的 <code>⟨lvl⟩</code> 嵌入上，让主干从第一层就能看到档位。两种都说得通，P4 做一次对照来定。</p>
+<p>差别只在「模型第几层开始知道档位」：加在输入端，前 28 层都能用这个信息；加在输出端，只有最后的打分器知道。这不是「是否引入顺序」的差别——两种都引入了。</p>
+<p>为什么补这个不算「又把位置偏差带回来了」？</p>
+<p>因为抹掉的和补上的不是同一样东西。位置重算抹掉的是「谁排在序列前面」——那是渲染顺序造成的偶然事实。ord_emb 补的是「这是第几档」——那是数据本身的属性。调用方把档位倒过来传，ord_emb 跟着倒，答案也应该跟着倒。</p>
+<p>判断标准就一条：打乱顺序，分数跟着它自己的选项走。ord_emb 满足，RoPE 位置不满足。</p>
+<h3 id="73-缓存到底存的什么"><a class="header" href="#73-缓存到底存的什么">7.3 缓存到底存的什么</a></h3>
+<p>DUAN 能缓存，这是选它的主要理由之一。但这里有个容易混的地方。</p>
+<p>「前缀」在两种语境下不是一回事：</p>
+<ul>
+<li><strong>一次前向里的前缀</strong>：<code>s</code> 加 <code>q</code>。同一道题的所有选项段共用它。不同问题的 <code>q</code> 不同，前缀就不同。</li>
+<li><strong>跨请求的缓存</strong>：只有 <code>s</code>。同一个 state 上来了新问题，<code>s</code> 已经算过的中间结果（KV，也就是注意力的 key 和 value）直接读出来，只有 <code>q</code> 和选项要重算。</li>
+</ul>
+<p>所以「同一个 state 上十个问题共享前缀」，共享的是 <code>s</code> 那一截。<code>q</code> 每个问题都得算一遍。</p>
+<p>Laya 做不到。它的 state 和问题从第 0 层就互相看得见，加一个问题，state 的表示就得全部重写。实测：同一个 state 上问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明一点没复用。</p>
+<p>而选项数从 2 加到 32（16 倍），耗时只涨到 4.9 倍——因为选项变多只是序列变长，前向次数没变。这两个数字放一起看才完整：<strong>Laya 省了前向次数，赔了 state 复用。</strong></p>
+<h2 id="8-几种做法摆一起"><a class="header" href="#8-几种做法摆一起">8. 几种做法摆一起</a></h2>
+<p>这四种做法的根本区别是：<strong>一次前向装得下多少东西。</strong> 用这个视角看，表格不会歧义。</p>
+<div class="table-wrapper"><table><thead><tr><th>做法</th><th>一次前向的单位</th><th>state 编码几次</th><th>选项之间</th><th>换顺序会变吗</th></tr></thead><tbody>
+<tr><td>标准编码器</td><td>一个（state, 问题, 选项）</td><td>每选项 1 次</td><td>不在同一序列</td><td>不会</td></tr>
+<tr><td>Laya</td><td>一个（state, 问题）</td><td>每问题 1 次</td><td>互相看得见</td><td>会</td></tr>
+<tr><td>kime-v1</td><td>一个（state, 问题块），块 ≤ 32 选项</td><td>1 次（可缓存）</td><td>看不见，但共用标记</td><td>块内不会，跨块不可比</td></tr>
+<tr><td><strong>DUAN</strong></td><td><strong>整个请求</strong>（state + 全部问题 + 全部选项）</td><td>1 次（可缓存）</td><td>看不见，也不共用任何东西</td><td>按构造不会</td></tr>
+</tbody></table>
+</div>
+<p>从第一行看到最后一行，就是「一次前向装的东西越来越多」：一个选项 → 一个问题 → 一个块 → 整个请求。</p>
+<p>两个容易读错的格子：</p>
+<ul>
+<li><strong>Laya 不是「每个请求一次」。</strong> 它是 <code>One sequence per question</code>（kime <code>spec/06-input.md</code>），一个请求里有 10 个问题就跑 10 次。实测问题数 1 → 10 耗时 7.3 倍，正是这个线性关系的证据。</li>
+<li><strong>kime-v1 的 64 选项不是两块就完事。</strong> 选项超过 32 个时，先按块打分，再把概率最高的 16 个合起来重打一次（<code>spec/04-semantics.md</code>）。所以 64 选项 = 2 次分块前向 + 1 次联合重打。</li>
+</ul>
+<p>DUAN 那一行的「按构造不会」是设计推论，还没有实测——P4 会用「标记放在选项前面」的布局做对照量出来。</p>
+<h2 id="9-三个容易讲错的地方"><a class="header" href="#9-三个容易讲错的地方">9. 三个容易讲错的地方</a></h2>
+<p><strong>「因果模型的表达能力更弱」。</strong> 不对。在给定序列上，它只是信息流受限，判别精度不必然更低。真正的代价在成本、对称性和可复用性。</p>
+<p><strong>「编码器一次前向就能给所有选项打分」。</strong> 对标准编码器来说不对，它是一次一个选项。把选项全塞进一个序列确实能一次跑完，Laya 就这么干，但代价是选项互相看得见。</p>
+<p><strong>「一次前向就是 listwise」。</strong> 不对。一次前向说的是算了几批，listwise 说的是分数依赖什么。DUAN 一次前向，但分数只依赖单个选项。判断看矩阵的形状：<strong>只看选项段和选项段之间那块区域</strong>有没有连线，不看前缀那块（它在哪种做法里都是下三角）。</p>
+<h2 id="10-自测"><a class="header" href="#10-自测">10. 自测</a></h2>
+<p>每题后面标了答案在正文哪一节。先自己答，答完再回去对。</p>
+<ol>
+<li>同一道三选题，Laya 和 DUAN 各做几次前向？各自的 state 被算几次？（§8）</li>
+<li>把 <code>o₁</code> 和 <code>o₃</code> 换个位置，顺序拼接和分段布局下的分数会怎么变？为什么？（§4、§6）</li>
+<li>分段布局既要「一次前向」又要「逐项打分」，这两件事为什么不矛盾？省掉的是什么，没省的是什么？（§6）</li>
+<li>选项之间不能互相比，为什么 choice 还能做对？写出那个等式，并说明 listwise 多出来的到底是什么。（§7.1）</li>
+<li>ord_emb 加回顺序为什么不破坏置换不变性？加在输入端和输出端有区别吗？（§7.2）</li>
+<li>「十个问题共享前缀」，共享的是哪一段？<code>q</code> 能不能也缓存？（§7.3）</li>
+<li>为什么校准要按选项数量分桶？（§7.3 末尾没有直接讲，答案要合起来看：softmax 的分母受 k 影响，所以温度要按 k 分桶才准。详见 <code>design.md</code> 第 6 节和 kime <code>spec/04-semantics.md</code>）</li>
+</ol>
+<p>第 7 题正文里没展开，因为它是校准的话题，属于 P1、P6 的内容。这里只需要记住结论：<strong>k 变了，softmax 的形状就变，同一个温度不再适用。</strong></p>
+<h2 id="11-数据出处"><a class="header" href="#11-数据出处">11. 数据出处</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>数字</th><th>含义</th><th>条件</th><th>出处</th></tr></thead><tbody>
+<tr><td>0.0013 / 0.0477 / 0.1600</td><td><strong>Laya</strong> 的翻转率（XNLI / Emotion / MASSIVE）</td><td>分母是<strong>重排副本</strong>：1500 / 3000 / 1500 个副本，对应 300 / 600 / 300 道题</td><td>kime <code>2026-09-30-gate/gate.md</code>、<code>report.md</code></td></tr>
+<tr><td>0.33% / 11.0% / 29.7%</td><td><strong>至少翻过一次的题</strong>的比例</td><td>分母是<strong>题</strong>，与上一行不同</td><td>kime <code>2026-09-30-gate/report.md</code></td></tr>
+<tr><td>3 / 6 / 20</td><td>上面三个数据集的选项数</td><td>XNLI 三分类型；Emotion 6 个情绪；MASSIVE 按 <code>N_OPTS=20</code> 抽</td><td>kime <code>tools/eval/build_suites.py</code></td></tr>
+<tr><td>4.9x</td><td>选项 2 → 32（16 倍）的耗时比</td><td>同一 state、同一问题、CPU 6 线程、三次取中位数</td><td><a href="docs/learn/../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测</a></td></tr>
+<tr><td>7.3x</td><td>问题 1 → 10 的耗时比</td><td>同一 state、同样的 choice 问题、CPU 6 线程、三次取中位数；<strong>请求粒度原始记录未写明</strong></td><td>同上</td></tr>
+<tr><td>0.593–0.623</td><td><strong>Laya</strong> 一次跑 vs 各块大小的一致率</td><td>300 题 banking77，每题 64 选项，M4 Metal；混有 token 预算差异</td><td>kime <code>2026-09-30-chunking/banking77.md</code></td></tr>
+<tr><td>0.790</td><td><strong>Laya</strong> 块 8/16/32 互相之间的一致率</td><td>同上；<strong>同样混有 token 预算差异</strong></td><td>同上</td></tr>
+<tr><td>0.523 → 0.607–0.623</td><td><strong>Laya</strong> 的 banking77 Top-1</td><td>同上；每选项 token 数 4（一次跑）→ 5.5~22（分块）</td><td>同上</td></tr>
+</tbody></table>
+</div>
+<p>三处容易读错的地方：</p>
+<ul>
+<li><strong>翻转率的分母是副本，不是题。</strong> 「16% 的题换了答案」是错的——MASSIVE 是 16% 的<strong>重排副本</strong>换了答案，受影响的是 <strong>29.7% 的题</strong>。这两个数差近一倍。</li>
+<li><strong>chunking 报告测的是 Laya，不是 kime-v1。</strong> 报告结尾写明它是给 kime-v1 设的门槛，这一轮跑的是基线。</li>
+<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya compat 是 <code>One sequence per question</code>（<code>spec/06-input.md</code>），两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
+</ul>
+<p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
+<p>这个项目的来龙去脉见 README.md，一次请求的数据流见 <a href="docs/learn/dataflow.html">dataflow.md</a>。</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="一次请求的数据流"><a class="header" href="#一次请求的数据流">一次请求的数据流</a></h1>
+<p>这是 U3 的参考答案。先合上这一页，自己把图画出一次，画完再回来对照。</p>
+<p>我们跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>DUAN 换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
+<h2 id="先看请求长什么样"><a class="header" href="#先看请求长什么样">先看请求长什么样</a></h2>
+<pre><code class="language-json">{
+  "state": {"subject": "Refund", "body": "上个月我的信用卡被扣了两次款，请立即退款。"},
+  "questions": [
+    {"type": "choice", "instructions": "该转给哪个团队",
+     "criteria": [{"label": "billing"}, {"label": "sales"}, {"label": "legal"}]}
+  ]
+}
+</code></pre>
+<p>一个 <code>state</code> 加一组问题。每个问题有类型、指令和候选。模型要输出的是每个问题的<strong>答案字段</strong>，不是文本。</p>
+<h2 id="laya-怎么走完这一程"><a class="header" href="#laya-怎么走完这一程">Laya 怎么走完这一程</a></h2>
+<p>Laya 收到这个请求，把所有东西拼成一个序列：</p>
+<pre><code class="language-text">[CLS] 问题 [SEP] [MASK] 选项0 [MASK] 选项1 [MASK] 选项2 [SEP] state [SEP]
+</code></pre>
+<p>注意三件事，它们后面都会变成问题：</p>
+<ol>
+<li><strong>state 在最后。</strong> 所以 state 能看见前面的问题——但同时也挤在末尾，长 state 会被从尾部截断。</li>
+<li><strong>每个选项前面有一个 <code>[MASK]</code>。</strong> 这是读分数的位置。</li>
+<li><strong>选项之间互相看得见</strong>（第 3 条其实和上一条是一件事的两面：<code>[MASK]</code> 能看到整段）。</li>
+</ol>
+<p>然后：</p>
+<pre><code class="language-mermaid">flowchart LR
+    req["JSON 请求"] --&gt; render["渲染: 问题, 选项前的 MASK, 末尾的 state"]
+    subgraph laya ["Laya: 被替换的一段"]
+        enc["编码器"] --&gt; head2["2 层 head"]
+    end
+    render --&gt; enc
+    head2 --&gt; gather["gather: 读 MASK 位置"]
+    gather --&gt; scorer["scorer"]
+    scorer --&gt; calib["校准"]
+    calib --&gt; answer["类型化答案"]
+</code></pre>
+<p>编码器跑完，<code>gather</code> 从三个 <code>[MASK]</code> 位置各取一个隐藏状态，送进 scorer，每个得到一个 logit，softmax 之后就是概率。</p>
+<h2 id="duan-换掉了哪一段"><a class="header" href="#duan-换掉了哪一段">DUAN 换掉了哪一段</a></h2>
+<p><strong>不是整个 Laya。</strong> 换掉的只是中间那两块：编码器 + 2 层 head。</p>
+<p>框外面三件东西都留着：请求解析、scorer（决策头）、校准、答案组装。这是必须说清的一件事，因为它决定了 DUAN 要重写多少代码。</p>
+<pre><code class="language-mermaid">flowchart LR
+    req["JSON 请求: state + questions"] --&gt; render["渲染: state, 问题, 互不可见的选项段"]
+    subgraph duan ["DUAN: 换成这一段"]
+        qwen["Qwen3-0.6B 因果解码器"]
+    end
+    cache["state 前缀 KV 缓存"] -.-&gt; qwen
+    render --&gt; qwen
+    qwen --&gt; head["决策头: 每段结尾标记的隐藏状态到 logit"]
+    head --&gt; calib["校准: softmax(z / T)"]
+    calib --&gt; answer["类型化答案: choice / score / noul"]
+</code></pre>
+<p>两处关键差别：</p>
+<p><strong>读分数的位置变了。</strong> Laya 读选项<strong>前面</strong>的 <code>[MASK]</code>，DUAN 读选项<strong>后面</strong>的结尾标记。原因见 <a href="docs/learn/encoder-decoder.html">encoder-decoder.md</a> 第 3 节——因果模型里，位置只能看见自己之前的内容，放在选项前面的标记根本不知道选项是什么。</p>
+<p><strong><code>gather</code> 消失了。</strong> Laya 需要它是因为三个选项在同一个序列里，得按位置把三个 <code>[MASK]</code> 的隐藏状态挑出来。DUAN 也有这一步，但它不是独立节点——决策头读的就是各段末尾那个位置，不需要另外挑。</p>
+<h2 id="跟着一个值走"><a class="header" href="#跟着一个值走">跟着一个值走</a></h2>
+<p>把 <code>billing</code> 这个选项追到底：</p>
+<div class="table-wrapper"><table><thead><tr><th>步骤</th><th>发生了什么</th><th>输出的形状</th></tr></thead><tbody>
+<tr><td>解析</td><td><code>{"label":"billing"}</code> 变成结构体</td><td>一个 <code>Criteria</code> 对象</td></tr>
+<tr><td>渲染</td><td>变成 <code>billing</code> 三个 token，后面接 <code>⟨opt⟩</code></td><td>token id 序列</td></tr>
+<tr><td>前向</td><td>Qwen3 跑一次，带分段掩码</td><td>每段一个隐藏状态，1024 维</td></tr>
+<tr><td>决策头</td><td><code>LN → Linear → GELU → Linear</code></td><td>一个标量 logit</td></tr>
+<tr><td>softmax</td><td>三个 logit 一起归一化，温度 T</td><td>三个概率，和为 1</td></tr>
+<tr><td>组装</td><td>取 argmax 当 <code>choice</code>，算 confidence</td><td>一个 JSON 对象</td></tr>
+</tbody></table>
+</div>
+<p>其他两个选项走完全一样的五步，只是前向那一步是同时发生的——它们在一个张量里。</p>
+<h2 id="每个节点要注意什么"><a class="header" href="#每个节点要注意什么">每个节点要注意什么</a></h2>
+<p><strong>JSON 请求。</strong> <code>POST /v1/systemone</code>。<code>kime-core::request::parse</code> 用 <code>Limits::LAYA</code> 校验：最多 256 个问题、255 个选项、32 个等级。<code>kime.policy</code>、<code>kime.permutations</code>、<code>kime.shortlist</code> 这些扩展也在这里解析。</p>
+<p><strong>渲染。</strong> 这是两个项目差别最大的地方。DUAN 的顺序是 <code>[state] [问题 1] [选项 1.1] ... [问题 2] [选项 2.1] ...</code>，每段是「选项文本 + 结尾标记」，位置从 <code>n + len(问题块)</code> 重新开始。</p>
+<p>Laya 的渲染长这样（<code>spec/06-input.md</code>）：</p>
+<pre><code class="language-text">[CLS] tok("&lt;type&gt; question: &lt;instructions&gt;")[:budget] [SEP]
+[MASK] tok(" " + opt_0)[:48] ... [SEP]
+tok(state)[:room] [SEP]
+</code></pre>
+<p>选项上限 48 token，如果总长超过 <code>head_max_len</code> 就每个压到 <code>max(4, ...)</code>。state 从尾部截断，而且是<strong>静默</strong>的——这是个已知缺陷（Laya #174）。</p>
+<p>两边都要防一件事：用户文本里如果字面写着 <code>[MASK]</code> 或 <code>&lt;mask&gt;</code>，渲染时替换成空格，否则用户可以伪造标记。DUAN 的标记用的是词表外的 id，分词器压根产生不了，所以理论上不需要这层防护，但保留着没坏处。</p>
+<p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是 P4 要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
+<p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。kime-v1 靠拆成两个塔解决，DUAN 靠 Qwen3 的因果结构白得。</p>
+<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。<code>spec/03-api.md</code> 里那个示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
+<p><strong>决策头。</strong> Laya 是 <code>LayerNorm(d) → Linear(d,d) → GELU → Linear(d,1)</code>，每个选项出一个 logit。DUAN 用同样形态，但多一个按题型的偏置，作用在每个选项段结尾标记的隐藏状态上。</p>
+<p>score 题还要额外加序数嵌入，因为位置重计之后模型看不出档位顺序（<a href="docs/learn/encoder-decoder.html">encoder-decoder.md</a> 第 7.2 节）。</p>
+<p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找，回退顺序见 kime <code>spec/04-semantics.md</code>。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
+<p>这里修掉了 Laya 的一个不一致：它拟合时用 <code>[0.1, 10]</code>，运行时用 <code>[0.5, 5]</code>。拟合和运行必须是同一个范围，否则拟合出来的温度在运行时会被再次裁剪掉。</p>
+<p>顺带一个观察：<code>laya-multilingual</code> 这个快照的 checkpoint 里 <code>temperature = [1.0, 1.0, 1.0]</code>、<code>temperature_by_options = {}</code>——<strong>它根本没带拟合过的温度</strong>。</p>
+<p><strong>类型化答案。</strong> choice 给 <code>choice</code> + <code>probabilities</code> + <code>confidence</code>；score 给 <code>score = Σ i·p_i</code>、<code>legend</code>、<code>probabilities</code>；noul 给 <code>noul = p[1]</code>。三者都带 <code>action.act_probability</code>。</p>
+<p><code>confidence</code> 有两个公式，很容易混。实测同一个 <code>urgency</code> 问题：</p>
+<ul>
+<li><code>confidence</code> = 0.1243，用的是熵公式 <code>1 - H(p)/ln k</code></li>
+<li><code>answer_confidence</code> = 0.3686，用的是 <code>max(p)</code></li>
+</ul>
+<p>报告里两者都被叫作「置信度」。取数之前先确认拿的是哪个。</p>
+<h2 id="零样本的四个坑"><a class="header" href="#零样本的四个坑">零样本的四个坑</a></h2>
+<p><code>tools/ref/qwen_zero_probe.py</code> 读标签 token 的概率当分数，机制成立但很脆：</p>
+<ol>
+<li><strong>标签不能出现在 prompt 里。</strong> 否则模型是在复制标签，不是在选。</li>
+<li><strong>候选标签的首 token 必须互不相同。</strong> <code>option 1..4</code> 的首 token 都是 <code>option</code>，归一化之后必然是四个 0.25。这不是「模型觉得四个一样」，是读法失效。</li>
+<li><strong>对空格和大小写敏感。</strong> <code>billing</code>（1.6e-8）和 <code> billing</code>（6.1e-7）差 38 倍。</li>
+<li><strong>作答前缀要和模型实际的输出格式一致。</strong> 否则单 token 的标签（比如 <code>other</code>）会占便宜。</li>
+</ol>
+<p>所以 kime 的原生模型和 DUAN 都用学出来的标记加 scorer，不用这套读法。</p>
+<h2 id="改一个东西看会发生什么"><a class="header" href="#改一个东西看会发生什么">改一个东西，看会发生什么</a></h2>
+<p>U5 要复现的就是这张表。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见 <a href="docs/learn/../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测记录</a>。</p>
+<div class="table-wrapper"><table><thead><tr><th>改动</th><th>Laya 的变化</th><th>Qwen3 零样本</th><th>为什么反直觉</th></tr></thead><tbody>
+<tr><td>选项顺序反转</td><td><code>billing</code> 1.0 → 0.998；同一请求里的 <code>urgency</code>、<code>churn</code> 完全不变</td><td>待测</td><td>只有被改的那个问题变，说明问题之间独立；顺序影响只在问题内部</td></tr>
+<tr><td>加一个明显错误的选项 <code>legal</code></td><td><code>billing</code> 仍是 1.0</td><td>待测</td><td>概率已经饱和，softmax 没有余量可分，候选集效应被掩盖了。要看不饱和的题才看得出来</td></tr>
+<tr><td>标签改成 <code>option 1..4</code>，描述不变</td><td><code>team</code> 从 1.0 塌到 0.793</td><td>四个全 0.2500</td><td>Laya 确实依赖 label word。Qwen3 的 0.25 不是「四个一样」，是首 token 相同导致读法失效</td></tr>
+<tr><td>问题数 1 → 10</td><td>136 ms → 993 ms，7.3 倍</td><td>待测（预期远低于 10 倍）</td><td>线性增长说明 state 每个问题都重算</td></tr>
+<tr><td>state 换成反事实（“German club” → “Italian club”）</td><td>两次都选 <code>Roma</code>（0.918、0.669）</td><td><code>Bayern</code> 0.9998、<code>Roma</code> 0.9977</td><td>Laya 没有把国籍对到队名，Qwen3 跟着材料走。见<a href="docs/learn/../../experiments/2026-11-04-p0-club-counterfactual/index.html">欧冠反事实对照</a></td></tr>
+</tbody></table>
+</div>
+<p>还有个不属于改动实验、但同样反直觉的现象：三个问题的 <code>act_probability</code> 全是 1.0，包括最大概率只有 0.3686 的 <code>urgency</code>。Laya 的 act head 从来没训练过。</p>
+<h2 id="自测"><a class="header" href="#自测">自测</a></h2>
+<ol>
+<li>DUAN 替换掉的边界在哪里？框外还留着哪几个节点？</li>
+<li>为什么 Laya 需要 <code>gather</code>，而 DUAN 不需要一个对应的独立节点？</li>
+<li>同一个 state 上问 10 个问题，DUAN 省掉了什么？Laya 为什么省不掉？</li>
+<li>响应里的 <code>confidence</code> 和 <code>answer_confidence</code> 分别是什么公式？报告里说「置信度」时指的是哪个？</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="kime-与-laya-的-p0-基线实测"><a class="header" href="#kime-与-laya-的-p0-基线实测">kime 与 Laya 的 P0 基线实测</a></h1>
+<ul>
+<li><strong>阶段：</strong> P0</li>
+<li><strong>问题：</strong> 把 kime 和 Laya 在只有 CPU 的机器上完整跑一遍，看看 Laya 的缺陷、kime 的实现和规格之间有什么差距，以及后面阶段能直接用的基线数字。</li>
+<li><strong>结论：</strong>
+<ul>
+<li>整条链路在只有 CPU 的 Intel Mac 上就能跑通，成本是约 6 分钟编译加 644 MB 权重。</li>
+<li>Laya 有三个缺陷，都能亲眼看到：选项排列会改变答案，答案依赖标签字面，<code>act_probability</code> 不可用。</li>
+<li>同一 state 上的问题数从 1 增加到 10，耗时变成 7.3 倍，说明 state 没有复用。</li>
+<li>kime 0.1.8 的指标定义可以直接对拍。</li>
+<li><code>kime.policy</code> 字段会被静默忽略，响应里也没有缓存字段。</li>
+</ul>
+</li>
+</ul>
+<h2 id="环境"><a class="header" href="#环境">环境</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>项目</th><th>值</th></tr></thead><tbody>
+<tr><td>硬件</td><td>iMac19.1，Intel i5-8500 @ 3.0 GHz，6 线程，40 GB 内存；有 Radeon Pro 570X 4 GB 独显，本次全部在 CPU 上运行</td></tr>
+<tr><td>CPU 特性</td><td><code>avx2 fma f16c</code>（kime-cpu 的 FMA 路径可用）</td></tr>
+<tr><td>系统</td><td>macOS 24.6.0</td></tr>
+<tr><td>Python 环境</td><td>torch 2.2.2，numpy 1.26.4，transformers 4.56.2（只用于 Qwen3 零样本）</td></tr>
+<tr><td>Rust</td><td>1.98.0</td></tr>
+<tr><td>kime 提交</td><td>0.1.8，<code>50419ac</code>（2026-09-30）</td></tr>
+<tr><td>基础模型</td><td><code>convaiinnovations/laya</code> 的 <code>multilingual</code> 子目录，快照 <code>7b928d8</code>，643.8 MB；零样本参考用 <code>Qwen/Qwen3-0.6B</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="命令"><a class="header" href="#命令">命令</a></h2>
+<pre><code class="language-bash">git submodule update --init
+cd third_party/kime &amp;&amp; cargo build --release --bin kime --bin kime-train
+./target/release/kime doctor
+./target/release/kime pull laya-multilingual
+
+# 服务
+./target/release/kime serve --model laya-multilingual --port 8111 --device cpu &amp;
+curl -s localhost:8111/health
+curl -s localhost:8111/v1/systemone -H 'content-type: application/json' -d @req.json
+
+# 手写的 7 行小套件；--answers 复用已有输出，不加载模型
+./target/release/kime eval suite.tiny.jsonl --model laya-multilingual --device cpu --out eval-tiny
+./target/release/kime eval suite.tiny.jsonl --answers eval-tiny --out eval-reuse
+
+# Qwen3 零样本（在 DUAN 仓库根目录）
+python tools/ref/qwen_zero_probe.py
+</code></pre>
+<p><code>req.json</code> 是 kime <code>README.md</code> 中的示例请求（<code>team</code>、<code>urgency</code>、<code>churn</code> 三道题），去掉了 <code>model</code> 字段。</p>
+<h2 id="结果"><a class="header" href="#结果">结果</a></h2>
+<h3 id="成本"><a class="header" href="#成本">成本</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>步骤</th><th>命令</th><th>耗时</th><th>说明</th></tr></thead><tbody>
+<tr><td>编译 CLI</td><td><code>cargo build --release --bin kime</code></td><td>3 分 02 秒</td><td>不需要额外的系统依赖</td></tr>
+<tr><td>编译训练器</td><td><code>cargo build --release --bin kime-train</code></td><td>3 分 24 秒</td><td>Burn 0.21 加 ndarray</td></tr>
+<tr><td>下载权重</td><td><code>kime pull laya-multilingual</code></td><td>55 秒</td><td>644 MB</td></tr>
+<tr><td>加载模型</td><td>每次进程启动</td><td>1.9 到 2.3 秒</td><td>冷启动</td></tr>
+<tr><td>单次 3 个问题的请求</td><td><code>kime predict</code></td><td>322 到 527 ms</td><td>包含进程启动和加载</td></tr>
+</tbody></table>
+</div>
+<h3 id="laya-的三个缺陷"><a class="header" href="#laya-的三个缺陷">Laya 的三个缺陷</a></h3>
+<p><strong>1. 选项排列会改变答案。</strong> 下面四组改动只针对 <code>team</code> 这道题：</p>
+<div class="table-wrapper"><table><thead><tr><th>改动</th><th><code>team</code> 的概率</th><th><code>urgency</code></th><th><code>churn</code></th></tr></thead><tbody>
+<tr><td>原始</td><td>billing 1.0，其他 0.0</td><td>1.871</td><td>0.0117</td></tr>
+<tr><td>选项顺序反转</td><td>billing 0.998，other 0.001，sales 0.001</td><td>1.871</td><td>0.0117</td></tr>
+<tr><td>加入错误选项 <code>legal</code></td><td>billing 1.0，legal 0.0</td><td>1.871</td><td>0.0117</td></tr>
+<tr><td>标签改成 <code>option 1..4</code>，描述不变</td><td>option 1 0.793，其余 0.147、0.04、0.02</td><td>1.871</td><td>0.0117</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>反转选项顺序后，<code>team</code> 的概率变了，另外两题一点没变。这说明每个问题单独前向，但同一个问题内部，选项的排列会影响 logits。</li>
+<li>加一个明显错误的选项，<code>team</code> 几乎不动，因为 <code>billing</code> 已经饱和在 1.0。要观察候选集效应，必须先构造一个不饱和的问题。</li>
+</ul>
+<p><strong>2. 答案依赖标签字面。</strong> 描述不变，只把标签换成中性 id，<code>team</code> 就从 1.0 塌到 0.793。kime 增强表中「rename choice labels to neutral ids, 20%」这一项要修的就是它。</p>
+<p><strong>3. <code>act_probability</code> 不可用。</strong> 三道题的 <code>act_probability</code> 全是 1.0，包括最大概率只有 0.3686 的 <code>urgency</code>：</p>
+<pre><code class="language-text">team    | choice | confidence 0.9999 | act_probability 1.0
+urgency | score  | confidence 0.1243 | act_probability 1.0
+churn   | noul   | confidence 0.9883 | act_probability 1.0
+</code></pre>
+<p>这和 kime <code>spec/02-prior-art.md</code> 的记录一致：act head 从没训练过（<code>0.0 * act.sum()</code>），AUROC 0.30。所以 Laya 只能在 NLL、ECE、Brier 上当基线。</p>
+<p>另外，同一个 <code>urgency</code>，响应里的 <code>confidence</code> 是 0.1243，<code>answer_confidence</code> 是 0.3686。前者是熵公式 <code>1 − H(p)/ln k</code>，后者是 <code>max(p)</code>。报告里两者都叫「置信度」，做校准时要分清取的是哪一个。</p>
+<h3 id="耗时随问题数和选项数增长"><a class="header" href="#耗时随问题数和选项数增长">耗时随问题数和选项数增长</a></h3>
+<p>同一个 state，同样的 choice 问题，三次运行取中位数：</p>
+<div class="table-wrapper"><table><thead><tr><th>问题数</th><th>1</th><th>2</th><th>4</th><th>8</th><th>10</th></tr></thead><tbody>
+<tr><td>耗时</td><td>136 ms</td><td>266 ms</td><td>428 ms</td><td>888 ms</td><td>993 ms</td></tr>
+<tr><td>相对 1 个问题</td><td>1.0x</td><td>2.0x</td><td>3.1x</td><td>6.5x</td><td>7.3x</td></tr>
+</tbody></table>
+</div><div class="table-wrapper"><table><thead><tr><th>选项数</th><th>2</th><th>4</th><th>8</th><th>16</th><th>32</th></tr></thead><tbody>
+<tr><td>耗时</td><td>125 ms</td><td>165 ms</td><td>228 ms</td><td>415 ms</td><td>610 ms</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>问题数增加时，耗时近似线性增长，state 没有复用。P8 的完成标准就拿这条曲线作对照。</li>
+<li>选项从 2 个增加到 32 个，是 16 倍选项、4.9 倍耗时。Laya 的 compat 布局把所有选项放进同一个序列，选项多了只是序列变长，前向次数不变。</li>
+</ul>
+<h3 id="指标对拍"><a class="header" href="#指标对拍">指标对拍</a></h3>
+<p><code>kime eval</code> 接受任意符合格式的 JSONL。手写 7 行，789 ms 就能出完整报告。<code>rows.tsv</code> 每行给出 <code>gold</code>、<code>pred</code>、<code>confidence</code>、<code>correct</code> 和逐选项的 <code>probs</code>；加上 <code>--answers</code> 可以不加载模型重新评分。用 <code>rows.tsv</code> 手算的结果和报告一致：</p>
+<pre><code class="language-text">手算       ECE=0.357176  Brier=0.573607  NLL=1.044533
+kime 报告  ECE=0.3572    Brier=0.5736    NLL=1.0445
+</code></pre>
+<p>同一份数据，T = 1.0 时 ECE 是 0.3572，T = 3.0 时是 0.1452。只有 7 条数据，这只能说明流程通，不能当结论。</p>
+<h3 id="kime-018-和规格的差距"><a class="header" href="#kime-018-和规格的差距">kime 0.1.8 和规格的差距</a></h3>
+<ul>
+<li><strong>响应里没有 <code>cache</code> 字段。</strong> <code>spec/03-api.md</code> 的示例里有 <code>"cache": {"state": "hit", "answers": "miss"}</code>，但它属于扩展块，只在原生模型的响应里出现；Laya compat 路径不给这个字段。所以 P8 在 Laya 这一侧没有现成的对照可读，要自己测。</li>
+<li><strong><code>kime.policy</code> 被静默忽略。</strong> 按 <code>spec/04-semantics.md</code>，传入 <code>{"wrong": -3, "correct": 1, "abstain": -0.5}</code> 后，响应应该带 <code>decision</code>，阈值是 0.625。实测响应的顶层字段只有 <code>model</code>、<code>answers</code>、<code>usage</code>，也没有报错。源码中 <code>policy</code> 只出现在 <code>kime-train</code> 里。P6 的代价矩阵阈值要自己实现。</li>
+</ul>
+<h3 id="qwen3-零样本"><a class="header" href="#qwen3-零样本">Qwen3 零样本</a></h3>
+<p>指令版 <code>Qwen/Qwen3-0.6B</code>，使用聊天模板，只在候选集内归一化：</p>
+<div class="table-wrapper"><table><thead><tr><th>标签</th><th>概率</th></tr></thead><tbody>
+<tr><td>sales</td><td>0.4882（argmax）</td></tr>
+<tr><td>billing</td><td>0.4471</td></tr>
+<tr><td>technical</td><td>0.0625</td></tr>
+<tr><td>other</td><td>0.0021</td></tr>
+</tbody></table>
+</div>
+<p>正确答案是 <code>billing</code>，客户被重复扣费并威胁取消。0.6B 零样本选错了，而 Laya 给 <code>billing</code> 1.0。</p>
+<p>读标签 token 的零样本读法本身成立，但有四个陷阱：</p>
+<ol>
+<li><strong>标签放进 prompt，模型会去抄标签。</strong> prompt 里只能给描述，标签作为候选出现在作答的位置。</li>
+<li><strong>候选的首 token 必须互不相同。</strong> <code>option 1..4</code> 的分词是 <code>[2047, 220, 16/17/...]</code>，首 token 都是 <code>option</code>，归一化后必然全是 0.25。这不是模型认为四个一样，而是读法失效了，要改成累加多个 token 的序列打分。</li>
+<li><strong>对空格和大小写敏感。</strong> <code>billing</code>、<code> billing</code>、<code>Billing</code>、<code> Billing</code> 是四个不同的 token，概率能差两三个数量级（实测 <code>billing</code> 1.6e-8，<code> billing</code> 6.1e-7）。</li>
+<li><strong>作答前缀要和模型实际的输出格式一致。</strong> 选项写成 <code>- 标签: 描述</code> 的列表时，模型常常先照抄 <code>- </code>。直接在作答位置读标签，几个标签的概率都很低，单 token 的标签（如 <code>other</code>）少乘几个概率，就占了便宜。见 <a href="experiments/2026-11-02-p0-kime-baseline/../2026-11-04-p0-club-counterfactual/index.html">欧冠反事实对照</a>：不加前缀时 7 个请求里有 2 个和贪心生成不一致，都误选了 <code>other</code>。本节的数字是首 token 读法、不加前缀得到的，也可能受这一条影响。</li>
+</ol>
+<p>这四个陷阱说明，读标签 token 的做法泛化不到任意标签集。DUAN 用学出来的结尾标记加决策头，原因就在这里（design.md 第 3、5 节）。</p>
+<h3 id="intel-mac-的-python-环境"><a class="header" href="#intel-mac-的-python-环境">Intel Mac 的 Python 环境</a></h3>
+<p>PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12、numpy &lt; 2，transformers 也要停在 4.57 以下。安装命令见 <a href="experiments/2026-11-02-p0-kime-baseline/../../tools/ref/index.html">tools/ref/README.md</a>。</p>
+<h2 id="分析"><a class="header" href="#分析">分析</a></h2>
+<ul>
+<li>选项排列会改变答案、<code>act_probability</code> 不可用，这两条分别由 DUAN 的分段布局（design.md 第 3.4 节）和 P6 的置信度头来解决。答案依赖标签字面，由中性标签增强来解决。</li>
+<li>P1 不依赖任何模型权重。指标定义已经和 kime 对上，<code>duan-calib</code> 的对拍测试直接调用 <code>kime-eval</code>。</li>
+<li>没有跑 kime 的 <code>tools/eval/build_suites.py</code> 和 <code>run_laya.py</code>，它们要下载约 3 GB 数据集，还要另装 <code>laya</code> 包。这两个脚本等 P4 要和 kime 的公开数字逐行对比时再跑。</li>
+</ul>
+<p><strong>尚未验证：</strong></p>
+<ul>
+<li><code>.kime</code> 打包格式，以及非 Laya 后端的 <code>--precision int8</code> 路径；</li>
+<li><code>kime-train</code> 在全量数据上的真实速度。本次只跑了 78 行、10 步，每秒 57 个 token，不能外推。</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="欧冠球队的反事实对照laya-与-qwen3-06b-零样本"><a class="header" href="#欧冠球队的反事实对照laya-与-qwen3-06b-零样本">欧冠球队的反事实对照：Laya 与 Qwen3-0.6B 零样本</a></h1>
+<ul>
+<li><strong>阶段：</strong> P0</li>
+<li><strong>问题：</strong> 材料只给间接线索（「德国俱乐部」），答案要先把国籍换成队名时，Laya 和 Qwen3-0.6B 零样本各选什么？选的依据是材料，还是选项的字面和位置？</li>
+<li><strong>结论：</strong> 这是两道题上的观察，不是结论。
+<ul>
+<li>Laya 没有把国籍对到队名上。写 German 和写 Italian 都选 Roma，换一个德国队名或者把选项倒序，答案就变。</li>
+<li>Qwen3-0.6B 零样本按材料作答：German 选德国球队，Italian 选 Roma，倒序不变。材料为空时它选 <code>other</code>，没有用上「拜仁拿过欧冠」这类知识。</li>
+<li>这不说明 Qwen3 零样本更好。同一套读法放到 P0 那封扣费邮件上，Qwen3 选错成 <code>other</code>，Laya 给 <code>billing</code> 1.0。</li>
+<li>零样本读法有第四个陷阱：作答前缀要和模型实际输出的格式一致，否则单 token 的标签会占便宜。</li>
+</ul>
+</li>
+</ul>
+<h2 id="环境-1"><a class="header" href="#环境-1">环境</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>项目</th><th>值</th></tr></thead><tbody>
+<tr><td>硬件</td><td>iMac19.1，Intel i5-8500 @ 3.0 GHz，6 线程，40 GB 内存，全部在 CPU 上运行</td></tr>
+<tr><td>系统</td><td>macOS 24.6.0</td></tr>
+<tr><td>Python 环境</td><td>Python 3.12.8，torch 2.2.2，transformers 4.56.2，numpy 1.26.4</td></tr>
+<tr><td>duan 提交</td><td><code>5caf26f</code></td></tr>
+<tr><td>kime 提交</td><td><code>50419ac</code>（0.1.8）。子模块 <code>spec/</code> 下有 5 个文件未提交的改动，本实验只用到编译好的 <code>kime serve</code>，不受影响</td></tr>
+<tr><td>基础模型</td><td>Laya：<code>convaiinnovations/laya</code> 的 <code>multilingual</code>，快照 <code>7b928d8</code>。Qwen3：<code>Qwen/Qwen3-0.6B</code>（指令版），快照 <code>c1899de</code></td></tr>
+<tr><td>Burn</td><td>未用到</td></tr>
+</tbody></table>
+</div>
+<h2 id="题目"><a class="header" href="#题目">题目</a></h2>
+<p>问题统一是 “Which of these teams has won the Champions League”，四个选项的描述就是标签本身，<code>other</code> 的描述是 “Anything else”。<code>requests/</code> 里每个文件是一个请求：</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>state</th><th>选项（按请求里的顺序）</th><th>按材料应选</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>The German club won the Champions League.</td><td>Tottenham、Bayern、Roma、other</td><td>Bayern</td></tr>
+<tr><td><code>italian.json</code></td><td>The Italian club won the Champions League.</td><td>Tottenham、Bayern、Roma、other</td><td>Roma</td></tr>
+<tr><td><code>empty.json</code></td><td>空字符串</td><td>Tottenham、Bayern、Roma、other</td><td>无依据</td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>The German club won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Only the German team has won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>同上</td><td>other、Roma、Dortmund、Tottenham</td><td>Dortmund</td></tr>
+<tr><td><code>p0-billing.json</code></td><td>P0 基线的扣费邮件，问题是 “Which team should handle this”</td><td>billing、technical、sales、other，带描述</td><td>billing</td></tr>
+</tbody></table>
+</div>
+<p><code>italian.json</code> 是反事实对照：按材料该选 Roma，按事实 Roma 从没拿过欧冠。读材料的模型选 Roma，凭记忆的模型会选 Bayern。<code>p0-billing.json</code> 是 Laya 擅长的路由题，用来看 Qwen3 的读法换到这类题上表现如何。</p>
+<h2 id="命令-1"><a class="header" href="#命令-1">命令</a></h2>
+<pre><code class="language-bash"># Laya，服务开着时逐个请求（在 third_party/kime 下启动）
+./target/release/kime serve --model laya-multilingual --port 8111 --device cpu &amp;
+cd experiments/2026-11-04-p0-club-counterfactual
+for f in requests/*.json; do
+  curl -s localhost:8111/v1/systemone -H 'content-type: application/json' -d @$f \
+    | python3 -m json.tool --no-ensure-ascii &gt; results/laya/$(basename $f)
+done
+
+# Qwen3-0.6B 零样本（在 DUAN 仓库根目录，环境见 tools/ref/README.md）
+E=experiments/2026-11-04-p0-club-counterfactual
+python tools/ref/qwen_choice_probe.py --generate $E/requests/*.json &gt; $E/results/qwen3-0.6b.jsonl
+python tools/ref/qwen_choice_probe.py --prefix '' $E/requests/*.json &gt; $E/results/qwen3-0.6b-noprefix.jsonl
+</code></pre>
+<p>两个模型都是确定性的，重复运行结果逐位相同。没有随机种子。</p>
+<h2 id="结果-1"><a class="header" href="#结果-1">结果</a></h2>
+<h3 id="成本-1"><a class="header" href="#成本-1">成本</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>步骤</th><th>耗时</th><th>峰值内存</th></tr></thead><tbody>
+<tr><td>Laya，6 个请求</td><td>1.5 秒（服务已加载）</td><td>未测</td></tr>
+<tr><td>Qwen3，6 个请求打分并贪心生成</td><td>54.9 秒（含加载）</td><td>4.5 GiB</td></tr>
+<tr><td>Qwen3，6 个请求只打分</td><td>29.7 秒（含加载）</td><td>4.5 GiB</td></tr>
+</tbody></table>
+</div>
+<p><code>p0-billing.json</code> 是后来补的，单独跑了一次，结果追加在两个 jsonl 的最后一行，不计入上表。</p>
+<h3 id="两个模型的选择"><a class="header" href="#两个模型的选择">两个模型的选择</a></h3>
+<p>Qwen3 一列用默认前缀 <code>- </code>。原始返回在 <code>results/laya/</code> 和 <code>results/qwen3-0.6b.jsonl</code>。</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>应选</th><th>Laya</th><th>Qwen3-0.6B</th><th>Qwen3 贪心生成</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>Bayern</td><td>Roma 0.9176（Bayern 0.0279）</td><td>Bayern 0.9998</td><td><code>- Bayern</code></td></tr>
+<tr><td><code>italian.json</code></td><td>Roma</td><td>Roma 0.6692</td><td>Roma 0.9977</td><td><code>- Roma: Roma</code></td></tr>
+<tr><td><code>empty.json</code></td><td>无依据</td><td>other 0.7158</td><td>other 0.9309</td><td><code>other</code></td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>Dortmund</td><td>Dortmund 0.4586（Roma 0.4072）</td><td>Dortmund 0.9971</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Dortmund</td><td>Roma 0.7675（Dortmund 0.1874）</td><td>Dortmund 1.0</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>Dortmund</td><td>Dortmund 0.4225（Roma 0.4132）</td><td>Dortmund 0.9889</td><td><code>- Dortmund</code></td></tr>
+<tr><td><code>p0-billing.json</code></td><td>billing</td><td>billing 1.0</td><td>other 0.5092（billing 0.4885）</td><td><code>- other: Anything else</code></td></tr>
+</tbody></table>
+</div>
+<p>Laya 七个请求的 <code>act_probability</code> 全是 1.0，和 P0 基线一致。</p>
+<h3 id="作答前缀的影响"><a class="header" href="#作答前缀的影响">作答前缀的影响</a></h3>
+<p>同一个 Qwen3，只改标签前面的前缀：</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>前缀 <code>- </code></th><th>不加前缀</th><th>贪心生成</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>Bayern 0.9998</td><td>other 0.9606（Bayern 0.034）</td><td><code>- Bayern</code></td></tr>
+<tr><td><code>italian.json</code></td><td>Roma 0.9977</td><td>other 0.8144（Roma 0.176）</td><td><code>- Roma: Roma</code></td></tr>
+<tr><td><code>empty.json</code></td><td>other 0.9309</td><td>other 0.9899</td><td><code>other</code></td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>Dortmund 0.9971</td><td>Dortmund 0.868</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Dortmund 1.0</td><td>Dortmund 0.9729</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>Dortmund 0.9889</td><td>Dortmund 0.609</td><td><code>- Dortmund</code></td></tr>
+<tr><td><code>p0-billing.json</code></td><td>other 0.5092</td><td>other 0.8088</td><td><code>- other: Anything else</code></td></tr>
+</tbody></table>
+</div>
+<p>加前缀时，7 个选择都和贪心生成一致。不加前缀时有 2 个不一致，都是模型先写 <code>- </code> 的题，而且都误选了 <code>other</code>。</p>
+<h2 id="分析-1"><a class="header" href="#分析-1">分析</a></h2>
+<ul>
+<li><strong>Laya 没有读出国籍。</strong> German 和 Italian 都选 Roma，而且写 German 时 Roma 的概率（0.9176）比写 Italian 时（0.6692）还高。Bayern 在三种 state 下都在 0.03 左右。同一句 German，把 Bayern 换成 Dortmund，Dortmund 以 0.4586 对 0.4072 险胜；<code>only-german-team</code> 一组把选项倒序，答案在 Roma 和 Dortmund 之间翻转。这是 P0 已记录的「选项排列会改变答案」和「答案依赖标签字面」在一道新题上的实例。</li>
+<li><strong>Qwen3-0.6B 按材料作答。</strong> 反事实对照下它跟着材料从 Bayern 换到 Roma，说明不是在背「谁拿过欧冠」。倒序前后都选 Dortmund（1.0 和 0.9889）。材料为空时选 <code>other</code>，在这个规模上，它的世界知识不足以单独答对这道题。</li>
+<li><strong>换到路由题，Qwen3 零样本反而错了。</strong> 扣费邮件上它选 <code>other</code>，billing 只差 0.02；Laya 在这类题上训练过，给 billing 1.0。P0 用另一个 prompt 测过这封邮件，Qwen3 选的是 <code>sales</code>。两个 prompt 下都选错，但错的方向不同，说明 0.6B 零样本对 prompt 措辞很敏感。</li>
+<li><strong>第四个零样本陷阱。</strong> P0 实测记录列了三个陷阱。这里多一个：选项写成 <code>- 标签: 描述</code> 的列表时，模型常常先照抄 <code>- </code>。在作答位置直接读标签，几个标签的概率都很低，只有一个 token 的 <code>other</code> 少乘几个概率，就占了便宜。用贪心生成核对读法，是发现这类问题最直接的办法。</li>
+<li><strong>两者不能直接比较。</strong> Laya 是一次前向给每个选项打分；Qwen3 用聊天模板和列表 prompt，对每个候选整段打分。只有两道题、七个请求，也没有多个种子，所以这里只说明现象，不能当准确率或校准的结论。</li>
+<li><strong>对 DUAN 的意义。</strong> 「德国俱乐部 → 拜仁」这一跳，解码器骨干在零样本时就能完成。DUAN 用结尾标记加决策头替换读标签 token 的读法（design.md 第 3、5 节），P4 微调后这种能力是否还在，可以拿这组请求做回归检查。</li>
+</ul>
+<p><strong>尚未验证：</strong></p>
+<ul>
+<li>换成 Qwen3-0.6B-Base、更大的 Qwen3，或者把选项写成中文，结论是否不变；</li>
+<li>更多需要一跳推理的题目上，Laya 和 Qwen3 的差距有多大。</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="参考实现"><a class="header" href="#参考实现">参考实现</a></h1>
+<p>数值对齐用的参考脚本。每个 Burn 组件都先和这里的输出对齐，再考虑性能。</p>
+<div class="table-wrapper"><table><thead><tr><th>脚本</th><th>用途</th><th>对应阶段</th></tr></thead><tbody>
+<tr><td><code>qwen_ref.py</code></td><td>用 transformers 跑 Qwen3，导出 token id、嵌入层和每一层的隐藏状态、最终隐藏状态（FP32）</td><td>P2，<code>crates/duan-qwen/tests/align.rs</code> 读它的输出</td></tr>
+<tr><td><code>qwen_zero_probe.py</code></td><td>Qwen3-0.6B 零样本读选项标签 token 概率，验证因果模型的零样本读法</td><td>P0，结果见 <a href="tools/ref/../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测记录</a></td></tr>
+<tr><td><code>qwen_choice_probe.py</code></td><td>Qwen3-0.6B 零样本回答 System One 格式请求里的 choice 题，按「前缀 + 标签」整段打分，可选贪心生成做核对</td><td>P0，结果见 <a href="tools/ref/../../experiments/2026-11-04-p0-club-counterfactual/index.html">欧冠反事实对照</a></td></tr>
+<tr><td><code>hf_compat.py</code></td><td>各脚本共用的模型加载，按已安装的 transformers 版本选精度参数</td><td>公共</td></tr>
+</tbody></table>
+</div>
+<p>kime 自带的参考脚本在 <code>third_party/kime/tools/ref/</code>，其中 <code>train_ref.py</code> 是写 PyTorch 参考训练器（P5）时的范本，<code>laya_ref.py</code> 可以导出 Laya 的输出作为对照基线。</p>
+<h2 id="环境-2"><a class="header" href="#环境-2">环境</a></h2>
+<p>脚本不绑定机器，同一份代码在下面两种环境里都能跑。参考输出一律在 CPU 上以 FP32 计算，所以在哪台机器上导出，数值都应该一致；换机器后重新导出一次、和旧结果比对，就能确认环境没问题。</p>
+<p><strong>Apple Silicon、Linux、Windows：</strong> 用最新版。</p>
+<pre><code class="language-bash">uv venv -p 3.12 .venv &amp;&amp; source .venv/bin/activate
+uv pip install torch transformers safetensors numpy
+</code></pre>
+<p><strong>Intel Mac（x86_64）：</strong> PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12 且 numpy &lt; 2，transformers 也要相应停在 4.57 以下。</p>
+<pre><code class="language-bash">python3.12 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install "torch==2.2.2" "numpy&lt;2" "transformers&lt;4.57" safetensors
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>torch</th><th>macOS x86_64</th><th>macOS arm64</th></tr></thead><tbody>
+<tr><td>2.5.1 及以上</td><td>无 wheel</td><td>有</td></tr>
+<tr><td>2.2.2</td><td>有</td><td>有</td></tr>
+</tbody></table>
+</div>
+<p><code>from_pretrained</code> 的精度参数在 transformers 4.56 从 <code>torch_dtype=</code> 改名为 <code>dtype=</code>，这取决于 transformers 版本，和 torch 版本无关。<code>hf_compat.py</code> 会按已安装的版本自动选择，脚本里不要直接写这两个参数。实验记录里要写上 torch 和 transformers 的版本。</p>
+<h2 id="导出-qwen3-参考输出并对齐"><a class="header" href="#导出-qwen3-参考输出并对齐">导出 Qwen3 参考输出并对齐</a></h2>
+<pre><code class="language-bash"># 权重下载到 models/，参考输出写到 data/，两处都不提交
+huggingface-cli download Qwen/Qwen3-0.6B-Base --local-dir models/Qwen3-0.6B-Base
+python tools/ref/qwen_ref.py --model models/Qwen3-0.6B-Base --out data/ref/qwen3-0.6b
+
+DUAN_QWEN_DIR=models/Qwen3-0.6B-Base DUAN_REF_DIR=data/ref/qwen3-0.6b \
+  cargo test -p duan-qwen --test align -- --include-ignored
+</code></pre>
+<p>不加 <code>--cases</code> 时用内置的 4 个样例（中文、英文、JSON 和空串）。<code>--cases</code> 接受每行带 <code>text</code> 字段的 JSON lines 文件。</p>
+<p>输出格式：</p>
+<ul>
+<li><code>cases.jsonl</code>：每行是一个样例的 <code>text</code> 和 <code>ids</code>。</li>
+<li><code>&lt;i&gt;.safetensors</code>：一个样例的全部张量，都是 FP32、形状 <code>[seq, hidden]</code>：
+<ul>
+<li><code>embeddings</code>：嵌入层的输出；</li>
+<li><code>layer_&lt;j&gt;</code>：第 j 层的输出，j 从 0 到倒数第二层。transformers 不单独给出最后一层在最终归一化之前的输出；</li>
+<li><code>final</code>：最后一层经过最终 RMSNorm 之后的输出；</li>
+<li>另有 <code>ids</code>，int64。</li>
+</ul>
+</li>
+</ul>
+<p>Rust 端用和权重加载器同一个 safetensors crate 来读。对比时记下 <code>--revision</code> 或模型快照的提交号，写进实验记录。</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="中文训练数据p3"><a class="header" href="#中文训练数据p3">中文训练数据（P3）</a></h1>
+<p>把中文数据集转换成 kime 的训练格式。格式、增强方式和防泄漏规则都和 kime 保持一致，参见 <code>third_party/kime/tools/data/README.md</code> 与 <code>third_party/kime/spec/12-training.md</code>。</p>
+<h2 id="文件"><a class="header" href="#文件">文件</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>文件</th><th>作用</th></tr></thead><tbody>
+<tr><td><code>sources_zh.json</code></td><td>候选中文数据集清单，字段与 kime 的 <code>sources.json</code> 相同：<code>name</code>、<code>dataset</code>、<code>config</code>、<code>revision</code>、<code>split</code>、<code>license</code>、<code>license_note</code>、<code>use</code>、<code>task</code></td></tr>
+<tr><td><code>convert_zh.py</code></td><td>转换器，复用 kime <code>convert.py</code> 的 <code>line</code>、<code>choice</code>、<code>noul</code> 和种子规则，输出 <code>&lt;out&gt;/raw/&lt;source&gt;.jsonl</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="加入一个数据源"><a class="header" href="#加入一个数据源">加入一个数据源</a></h2>
+<ol>
+<li>
+<p>在 <code>sources_zh.json</code> 里加一条记录，固定 <code>revision</code>，写清许可证依据。许可证缺失、未知、非商用或仅限研究的，一律 <code>"use": "exclude"</code>，并在 <code>license_note</code> 里写原因。</p>
+</li>
+<li>
+<p>在 <code>convert_zh.py</code> 里写一个同名函数，登记到 <code>CONVERTERS</code>。每个问题至少准备 3 到 4 种中文指令措辞，state 的键名也从几个候选里随机选。</p>
+</li>
+<li>
+<p>运行转换：</p>
+<pre><code class="language-bash">pip install -r tools/requirements.txt
+python tools/data/convert_zh.py data/zh --only &lt;name&gt;
+</code></pre>
+</li>
+</ol>
+<h2 id="长度预算"><a class="header" href="#长度预算">长度预算</a></h2>
+<p>训练和推理都按 Qwen3 分词器计长度。转换完成后统计每个数据源的 state、问题和选项的 token 数分布，据此定下各部分的预算和截断规则，写进实验记录，并填进 <a href="tools/data/../../docs/design.html">docs/design.md</a> 第 3.7 节。同时用分词器确认嵌入矩阵里空着的 id 范围，填进第 3.6 节。</p>
+<h2 id="中文评测集"><a class="header" href="#中文评测集">中文评测集</a></h2>
+<p>评测集只取各数据集的测试集，永远不参与训练，放在 <code>data/zh-eval/</code>（不提交）。训练数据进入分片之前，先用 <code>kime contam</code> 对评测集去重（Jaccard 0.5），再生成 <code>manifest.json</code>，最后用 <code>kime eval &lt;suite&gt; --data-manifest &lt;manifest.json&gt;</code> 检查（这个命令至少要一个 suite 路径）。这一步属于 P3 的产出，目前还没有实现（U14）。</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="术语表"><a class="header" href="#术语表">术语表</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>English</th><th>中文</th><th>说明</th></tr></thead><tbody>
+<tr><td>System One</td><td>系统一</td><td>做快速决策而非生成的模型定位</td></tr>
+<tr><td>choice</td><td>选择题</td><td>从给定选项中选一个</td></tr>
+<tr><td>score</td><td>打分题</td><td>有序等级上的分布</td></tr>
+<tr><td>noul</td><td>是非题</td><td>一个命题为真的概率</td></tr>
+<tr><td>state</td><td>状态</td><td>请求里要判断的上下文数据</td></tr>
+<tr><td>soft label</td><td>软标签</td><td>选项上的概率分布，而非单个正确答案</td></tr>
+<tr><td>calibration</td><td>校准</td><td>预测概率与实际正确率一致的程度</td></tr>
+<tr><td>temperature scaling</td><td>温度缩放</td><td>用一个标量 T 把 logits 除以 T 后再 softmax</td></tr>
+<tr><td>proper scoring rule</td><td>适当评分规则</td><td>期望得分在报告真实概率时最优的评分方式</td></tr>
+<tr><td>ECE</td><td>期望校准误差</td><td>按置信度分箱后，置信度与准确率之差的加权平均</td></tr>
+<tr><td>NLL</td><td>负对数似然</td><td>正确选项概率的负对数均值</td></tr>
+<tr><td>Brier score</td><td>Brier 分数</td><td>概率向量与 one-hot 之差的平方和</td></tr>
+<tr><td>AUROC</td><td>ROC 曲线下面积</td><td>置信度区分对错答案的能力</td></tr>
+<tr><td>encoder</td><td>编码器</td><td>双向注意力结构，位置表示依赖整段序列；Laya 用的 ModernBERT 属于这类</td></tr>
+<tr><td>decoder</td><td>解码器</td><td>因果注意力结构，位置表示只依赖前缀，可做前缀缓存；Qwen3 属于这类</td></tr>
+<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力；kime 的 gate 报告把它记作 AUROC 0.30，但 0.30 低于随机水平，说明这个头的残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
+<tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，kime 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
+<tr><td>causal attention</td><td>因果注意力</td><td>每个位置只能看到它之前的位置</td></tr>
+<tr><td>bidirectional attention</td><td>双向注意力</td><td>每个位置能看到整段序列，任何 token 的加入都会改写前面的表示</td></tr>
+<tr><td>pointwise scoring</td><td>逐项打分</td><td>每个选项的分数只依赖它自己，对选项排列不变。标准编码器实现要 $k$ 次前向；解码器用分段布局可以一次前向。注意「逐项」说的是分数依赖什么，不是前向次数。它不影响 argmax：softmax 单调，$\arg\max_k z_k$ 与归一化无关；丢掉的是候选集上下文，不是选择能力</td></tr>
+<tr><td>listwise scoring</td><td>列表打分</td><td>分数依赖选项排列与候选集组成，因为选项在同一序列里互相可见</td></tr>
+<tr><td>layout</td><td>排法</td><td>同一次前向里选项怎么摆。两个常见取值：顺序拼接（互相可见）、分段布局（互不可见且位置重计）。但排法不止两种：kime-v1 互不可见却共用标记，标准编码器则根本不把选项放进同一序列</td></tr>
+<tr><td>forward count</td><td>前向次数</td><td>算了几次模型。它是排法的工程后果，不是结构的性质，也不决定打分方式</td></tr>
+<tr><td>segment mask</td><td>分段掩码</td><td>让几段文本共用一个前缀、彼此不可见的注意力掩码；本项目用它把各个选项段放进同一次前向</td></tr>
+<tr><td>position restart</td><td>位置重计</td><td>每个选项段的 RoPE 位置都从前缀长度开始，模型分不出选项的先后</td></tr>
+<tr><td>marker</td><td>标记</td><td>决策头读取其隐藏状态的特殊 token。DUAN 的结尾标记用嵌入矩阵里空着的 id，分词器产生不了；Laya 的 <code>[MASK]</code> 是词表内的普通特殊 token，所以渲染时要把用户文本里字面的 <code>[MASK]</code> 替换掉</td></tr>
+<tr><td>ordinal embedding</td><td>序数嵌入</td><td>加在 score 各档标记上的向量，告诉模型档位顺序，因为位置重计后模型看不出顺序。它跟着选项一起移动，所以不破坏置换不变性：位置重计消除的是「排版顺序」这个噪声，它注入的是「第 i 档 / 共 k 档」这个语义</td></tr>
+<tr><td>RPS, ranked probability score</td><td>有序概率评分</td><td>按累积分布比较的评分规则，档位猜偏一档比猜偏三档惩罚轻；用于 score 题</td></tr>
+<tr><td>GQA, grouped query attention</td><td>分组查询注意力</td><td>多个查询头共享一组键值头</td></tr>
+<tr><td>RoPE</td><td>旋转位置编码</td><td>用旋转矩阵把位置信息乘进 Q 和 K，使注意力分数只取决于相对位置；Qwen3 用 rotate-half 约定，θ = 1e6</td></tr>
+<tr><td>RMSNorm</td><td>均方根归一化</td><td>只按均方根缩放、不减均值，也没有偏置；Qwen3 的 eps 是 1e-6</td></tr>
+<tr><td>QK-norm</td><td>查询键归一化</td><td>在计算 $QK^\top$ 之前对每个头的 Q 和 K 各做一次归一化；Qwen3 有，Llama 没有</td></tr>
+<tr><td>SwiGLU</td><td>SwiGLU 门控前馈</td><td>门控前馈的一种，门用 SiLU；Qwen3 中间维度 3072，Llama 常用 4d</td></tr>
+<tr><td>KV cache</td><td>键值缓存</td><td>保存已算过的 K 和 V，增量前向时只算新 token；<code>KvCache::len()</code> 是新 token 在 <code>bias</code> 里的列偏移，不是它的 RoPE 位置</td></tr>
+<tr><td>prefix caching</td><td>前缀缓存</td><td>KV 缓存的一种用法：同一个前缀（例如 state）只算一次，多个后缀共用；P8 的收益来源</td></tr>
+<tr><td>order flip rate</td><td>选项翻转率</td><td>调换选项顺序后答案改变的比例</td></tr>
+<tr><td>permutation invariance</td><td>置换不变性</td><td>打乱输入顺序后输出不变的性质；pointwise 打分满足，listwise 不满足</td></tr>
+<tr><td>chunk consistency</td><td>分块一致性</td><td>同一道题在不同分块方式下给出的答案一致率。有两种口径，<strong>不能混</strong>：①「一次前向 vs 各分块」，②「各分块之间」。kime 的 chunking 报告（测的是 Laya）实测：①0.59–0.62（混有 token 预算差异），②0.790</td></tr>
+<tr><td>contamination</td><td>测试集泄漏</td><td>训练数据里出现了和评测集近似的文本；用 MinHash + Jaccard 0.5 检查，<code>kime contam</code> 实现</td></tr>
+<tr><td>distillation</td><td>蒸馏</td><td>让小模型学大模型的输出分布；kime-v1 用全交叉编码器教师，DUAN 不用（design.md 第 6 节）</td></tr>
+</tbody></table>
+</div>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            MathJax.Hub.Register.StartupHook('End', function() {
+                window.setTimeout(window.print, 100);
+            });
+        });
+        </script>
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>P0 反事实对照：欧冠俱乐部 - DUAN</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="用 Qwen3-0.6B 与 Burn 实现一个不生成文本的决策模型">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">DUAN</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/TsaoLun/duan-book/edit/main/book-src/experiments/2026-11-04-p0-club-counterfactual/index.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="欧冠球队的反事实对照laya-与-qwen3-06b-零样本"><a class="header" href="#欧冠球队的反事实对照laya-与-qwen3-06b-零样本">欧冠球队的反事实对照：Laya 与 Qwen3-0.6B 零样本</a></h1>
+<ul>
+<li><strong>阶段：</strong> P0</li>
+<li><strong>问题：</strong> 材料只给间接线索（「德国俱乐部」），答案要先把国籍换成队名时，Laya 和 Qwen3-0.6B 零样本各选什么？选的依据是材料，还是选项的字面和位置？</li>
+<li><strong>结论：</strong> 这是两道题上的观察，不是结论。
+<ul>
+<li>Laya 没有把国籍对到队名上。写 German 和写 Italian 都选 Roma，换一个德国队名或者把选项倒序，答案就变。</li>
+<li>Qwen3-0.6B 零样本按材料作答：German 选德国球队，Italian 选 Roma，倒序不变。材料为空时它选 <code>other</code>，没有用上「拜仁拿过欧冠」这类知识。</li>
+<li>这不说明 Qwen3 零样本更好。同一套读法放到 P0 那封扣费邮件上，Qwen3 选错成 <code>other</code>，Laya 给 <code>billing</code> 1.0。</li>
+<li>零样本读法有第四个陷阱：作答前缀要和模型实际输出的格式一致，否则单 token 的标签会占便宜。</li>
+</ul>
+</li>
+</ul>
+<h2 id="环境"><a class="header" href="#环境">环境</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>项目</th><th>值</th></tr></thead><tbody>
+<tr><td>硬件</td><td>iMac19.1，Intel i5-8500 @ 3.0 GHz，6 线程，40 GB 内存，全部在 CPU 上运行</td></tr>
+<tr><td>系统</td><td>macOS 24.6.0</td></tr>
+<tr><td>Python 环境</td><td>Python 3.12.8，torch 2.2.2，transformers 4.56.2，numpy 1.26.4</td></tr>
+<tr><td>duan 提交</td><td><code>5caf26f</code></td></tr>
+<tr><td>kime 提交</td><td><code>50419ac</code>（0.1.8）。子模块 <code>spec/</code> 下有 5 个文件未提交的改动，本实验只用到编译好的 <code>kime serve</code>，不受影响</td></tr>
+<tr><td>基础模型</td><td>Laya：<code>convaiinnovations/laya</code> 的 <code>multilingual</code>，快照 <code>7b928d8</code>。Qwen3：<code>Qwen/Qwen3-0.6B</code>（指令版），快照 <code>c1899de</code></td></tr>
+<tr><td>Burn</td><td>未用到</td></tr>
+</tbody></table>
+</div>
+<h2 id="题目"><a class="header" href="#题目">题目</a></h2>
+<p>问题统一是 “Which of these teams has won the Champions League”，四个选项的描述就是标签本身，<code>other</code> 的描述是 “Anything else”。<code>requests/</code> 里每个文件是一个请求：</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>state</th><th>选项（按请求里的顺序）</th><th>按材料应选</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>The German club won the Champions League.</td><td>Tottenham、Bayern、Roma、other</td><td>Bayern</td></tr>
+<tr><td><code>italian.json</code></td><td>The Italian club won the Champions League.</td><td>Tottenham、Bayern、Roma、other</td><td>Roma</td></tr>
+<tr><td><code>empty.json</code></td><td>空字符串</td><td>Tottenham、Bayern、Roma、other</td><td>无依据</td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>The German club won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Only the German team has won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>同上</td><td>other、Roma、Dortmund、Tottenham</td><td>Dortmund</td></tr>
+<tr><td><code>p0-billing.json</code></td><td>P0 基线的扣费邮件，问题是 “Which team should handle this”</td><td>billing、technical、sales、other，带描述</td><td>billing</td></tr>
+</tbody></table>
+</div>
+<p><code>italian.json</code> 是反事实对照：按材料该选 Roma，按事实 Roma 从没拿过欧冠。读材料的模型选 Roma，凭记忆的模型会选 Bayern。<code>p0-billing.json</code> 是 Laya 擅长的路由题，用来看 Qwen3 的读法换到这类题上表现如何。</p>
+<h2 id="命令"><a class="header" href="#命令">命令</a></h2>
+<pre><code class="language-bash"># Laya，服务开着时逐个请求（在 third_party/kime 下启动）
+./target/release/kime serve --model laya-multilingual --port 8111 --device cpu &amp;
+cd experiments/2026-11-04-p0-club-counterfactual
+for f in requests/*.json; do
+  curl -s localhost:8111/v1/systemone -H 'content-type: application/json' -d @$f \
+    | python3 -m json.tool --no-ensure-ascii &gt; results/laya/$(basename $f)
+done
+
+# Qwen3-0.6B 零样本（在 DUAN 仓库根目录，环境见 tools/ref/README.md）
+E=experiments/2026-11-04-p0-club-counterfactual
+python tools/ref/qwen_choice_probe.py --generate $E/requests/*.json &gt; $E/results/qwen3-0.6b.jsonl
+python tools/ref/qwen_choice_probe.py --prefix '' $E/requests/*.json &gt; $E/results/qwen3-0.6b-noprefix.jsonl
+</code></pre>
+<p>两个模型都是确定性的，重复运行结果逐位相同。没有随机种子。</p>
+<h2 id="结果"><a class="header" href="#结果">结果</a></h2>
+<h3 id="成本"><a class="header" href="#成本">成本</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>步骤</th><th>耗时</th><th>峰值内存</th></tr></thead><tbody>
+<tr><td>Laya，6 个请求</td><td>1.5 秒（服务已加载）</td><td>未测</td></tr>
+<tr><td>Qwen3，6 个请求打分并贪心生成</td><td>54.9 秒（含加载）</td><td>4.5 GiB</td></tr>
+<tr><td>Qwen3，6 个请求只打分</td><td>29.7 秒（含加载）</td><td>4.5 GiB</td></tr>
+</tbody></table>
+</div>
+<p><code>p0-billing.json</code> 是后来补的，单独跑了一次，结果追加在两个 jsonl 的最后一行，不计入上表。</p>
+<h3 id="两个模型的选择"><a class="header" href="#两个模型的选择">两个模型的选择</a></h3>
+<p>Qwen3 一列用默认前缀 <code>- </code>。原始返回在 <code>results/laya/</code> 和 <code>results/qwen3-0.6b.jsonl</code>。</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>应选</th><th>Laya</th><th>Qwen3-0.6B</th><th>Qwen3 贪心生成</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>Bayern</td><td>Roma 0.9176（Bayern 0.0279）</td><td>Bayern 0.9998</td><td><code>- Bayern</code></td></tr>
+<tr><td><code>italian.json</code></td><td>Roma</td><td>Roma 0.6692</td><td>Roma 0.9977</td><td><code>- Roma: Roma</code></td></tr>
+<tr><td><code>empty.json</code></td><td>无依据</td><td>other 0.7158</td><td>other 0.9309</td><td><code>other</code></td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>Dortmund</td><td>Dortmund 0.4586（Roma 0.4072）</td><td>Dortmund 0.9971</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Dortmund</td><td>Roma 0.7675（Dortmund 0.1874）</td><td>Dortmund 1.0</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>Dortmund</td><td>Dortmund 0.4225（Roma 0.4132）</td><td>Dortmund 0.9889</td><td><code>- Dortmund</code></td></tr>
+<tr><td><code>p0-billing.json</code></td><td>billing</td><td>billing 1.0</td><td>other 0.5092（billing 0.4885）</td><td><code>- other: Anything else</code></td></tr>
+</tbody></table>
+</div>
+<p>Laya 七个请求的 <code>act_probability</code> 全是 1.0，和 P0 基线一致。</p>
+<h3 id="作答前缀的影响"><a class="header" href="#作答前缀的影响">作答前缀的影响</a></h3>
+<p>同一个 Qwen3，只改标签前面的前缀：</p>
+<div class="table-wrapper"><table><thead><tr><th>请求</th><th>前缀 <code>- </code></th><th>不加前缀</th><th>贪心生成</th></tr></thead><tbody>
+<tr><td><code>german.json</code></td><td>Bayern 0.9998</td><td>other 0.9606（Bayern 0.034）</td><td><code>- Bayern</code></td></tr>
+<tr><td><code>italian.json</code></td><td>Roma 0.9977</td><td>other 0.8144（Roma 0.176）</td><td><code>- Roma: Roma</code></td></tr>
+<tr><td><code>empty.json</code></td><td>other 0.9309</td><td>other 0.9899</td><td><code>other</code></td></tr>
+<tr><td><code>german-dortmund.json</code></td><td>Dortmund 0.9971</td><td>Dortmund 0.868</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team.json</code></td><td>Dortmund 1.0</td><td>Dortmund 0.9729</td><td><code>Dortmund</code></td></tr>
+<tr><td><code>only-german-team-reversed.json</code></td><td>Dortmund 0.9889</td><td>Dortmund 0.609</td><td><code>- Dortmund</code></td></tr>
+<tr><td><code>p0-billing.json</code></td><td>other 0.5092</td><td>other 0.8088</td><td><code>- other: Anything else</code></td></tr>
+</tbody></table>
+</div>
+<p>加前缀时，7 个选择都和贪心生成一致。不加前缀时有 2 个不一致，都是模型先写 <code>- </code> 的题，而且都误选了 <code>other</code>。</p>
+<h2 id="分析"><a class="header" href="#分析">分析</a></h2>
+<ul>
+<li><strong>Laya 没有读出国籍。</strong> German 和 Italian 都选 Roma，而且写 German 时 Roma 的概率（0.9176）比写 Italian 时（0.6692）还高。Bayern 在三种 state 下都在 0.03 左右。同一句 German，把 Bayern 换成 Dortmund，Dortmund 以 0.4586 对 0.4072 险胜；<code>only-german-team</code> 一组把选项倒序，答案在 Roma 和 Dortmund 之间翻转。这是 P0 已记录的「选项排列会改变答案」和「答案依赖标签字面」在一道新题上的实例。</li>
+<li><strong>Qwen3-0.6B 按材料作答。</strong> 反事实对照下它跟着材料从 Bayern 换到 Roma，说明不是在背「谁拿过欧冠」。倒序前后都选 Dortmund（1.0 和 0.9889）。材料为空时选 <code>other</code>，在这个规模上，它的世界知识不足以单独答对这道题。</li>
+<li><strong>换到路由题，Qwen3 零样本反而错了。</strong> 扣费邮件上它选 <code>other</code>，billing 只差 0.02；Laya 在这类题上训练过，给 billing 1.0。P0 用另一个 prompt 测过这封邮件，Qwen3 选的是 <code>sales</code>。两个 prompt 下都选错，但错的方向不同，说明 0.6B 零样本对 prompt 措辞很敏感。</li>
+<li><strong>第四个零样本陷阱。</strong> P0 实测记录列了三个陷阱。这里多一个：选项写成 <code>- 标签: 描述</code> 的列表时，模型常常先照抄 <code>- </code>。在作答位置直接读标签，几个标签的概率都很低，只有一个 token 的 <code>other</code> 少乘几个概率，就占了便宜。用贪心生成核对读法，是发现这类问题最直接的办法。</li>
+<li><strong>两者不能直接比较。</strong> Laya 是一次前向给每个选项打分；Qwen3 用聊天模板和列表 prompt，对每个候选整段打分。只有两道题、七个请求，也没有多个种子，所以这里只说明现象，不能当准确率或校准的结论。</li>
+<li><strong>对 DUAN 的意义。</strong> 「德国俱乐部 → 拜仁」这一跳，解码器骨干在零样本时就能完成。DUAN 用结尾标记加决策头替换读标签 token 的读法（design.md 第 3、5 节），P4 微调后这种能力是否还在，可以拿这组请求做回归检查。</li>
+</ul>
+<p><strong>尚未验证：</strong></p>
+<ul>
+<li>换成 Qwen3-0.6B-Base、更大的 Qwen3，或者把选项写成中文，结论是否不变；</li>
+<li>更多需要一跳推理的题目上，Laya 和 Qwen3 的差距有多大。</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../tools/ref/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../tools/ref/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
