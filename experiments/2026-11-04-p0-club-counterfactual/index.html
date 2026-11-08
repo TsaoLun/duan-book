@@ -193,7 +193,7 @@
 <tr><td>系统</td><td>macOS 24.6.0</td></tr>
 <tr><td>Python 环境</td><td>Python 3.12.8，torch 2.2.2，transformers 4.56.2，numpy 1.26.4</td></tr>
 <tr><td>duan 提交</td><td><code>5caf26f</code></td></tr>
-<tr><td>参考实现</td><td><code>50419ac</code>（0.1.8）。只用到编译好的推理二进制，不受子模块 <code>spec/</code> 下未提交改动的影响</td></tr>
+<tr><td>测量方式</td><td>用一个现成的推理服务加载 Laya 权重，CPU 上逐个请求</td></tr>
 <tr><td>基础模型</td><td>Laya：<code>convaiinnovations/laya</code> 的 <code>multilingual</code>，快照 <code>7b928d8</code>。Qwen3：<code>Qwen/Qwen3-0.6B</code>（指令版），快照 <code>c1899de</code></td></tr>
 <tr><td>Burn</td><td>未用到</td></tr>
 </tbody></table>

@@ -428,7 +428,7 @@
 <ul>
 <li><strong>翻转率的分母是副本，不是题。</strong> 「16% 的题换了答案」是错的——MASSIVE 是 16% 的<strong>重排副本</strong>换了答案，受影响的是 <strong>29.7% 的题</strong>。这两个数差近一倍。</li>
 <li><strong>那组分块数字测的是 Laya，不是拆分编码器。</strong> 它反映的是 Laya 的分块行为，不能直接套到拆分方案上。</li>
-<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya compat 是 <code>One sequence per question</code>（<code>spec/06-input.md</code>），两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
+<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya 是每个问题一条序列，两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
 </ul>
 <p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
 <p>这个项目的来龙去脉见 README.md，一次请求的数据流见 <a href="dataflow.html">dataflow.md</a>。</p>

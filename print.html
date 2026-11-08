@@ -463,7 +463,7 @@
 <ul>
 <li><strong>翻转率的分母是副本，不是题。</strong> 「16% 的题换了答案」是错的——MASSIVE 是 16% 的<strong>重排副本</strong>换了答案，受影响的是 <strong>29.7% 的题</strong>。这两个数差近一倍。</li>
 <li><strong>那组分块数字测的是 Laya，不是拆分编码器。</strong> 它反映的是 Laya 的分块行为，不能直接套到拆分方案上。</li>
-<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya compat 是 <code>One sequence per question</code>（<code>spec/06-input.md</code>），两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
+<li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya 是每个问题一条序列，两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
 </ul>
 <p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
 <p>这个项目的来龙去脉见 README.md，一次请求的数据流见 <a href="docs/learn/dataflow.html">dataflow.md</a>。</p>
@@ -535,7 +535,7 @@
 <h2 id="每个节点要注意什么"><a class="header" href="#每个节点要注意什么">每个节点要注意什么</a></h2>
 <p><strong>JSON 请求。</strong> <code>POST /v1/systemone</code>。解析时做一轮校验：最多 256 个问题、255 个选项、32 个等级。代价矩阵、排列平均、短名单这类可选扩展也在这里解析。</p>
 <p><strong>渲染。</strong> 这是两个项目差别最大的地方。DUAN 的顺序是 <code>[state] [问题 1] [选项 1.1] ... [问题 2] [选项 2.1] ...</code>，每段是「选项文本 + 结尾标记」，位置从 <code>n + len(问题块)</code> 重新开始。</p>
-<p>Laya 的渲染长这样（<code>spec/06-input.md</code>）：</p>
+<p>Laya 的渲染长这样：</p>
 <pre><code class="language-text">[CLS] tok("&lt;type&gt; question: &lt;instructions&gt;")[:budget] [SEP]
 [MASK] tok(" " + opt_0)[:48] ... [SEP]
 tok(state)[:room] [SEP]
@@ -544,7 +544,7 @@ tok(state)[:room] [SEP]
 <p>两边都要防一件事：用户文本里如果字面写着 <code>[MASK]</code> 或 <code>&lt;mask&gt;</code>，渲染时替换成空格，否则用户可以伪造标记。DUAN 的标记用的是词表外的 id，分词器压根产生不了，所以理论上不需要这层防护，但保留着没坏处。</p>
 <p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是 P4 要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
 <p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。DUAN 靠 Qwen3 的因果结构白得。</p>
-<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。<code>spec/03-api.md</code> 里那个示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
+<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。文档里那个 <code>"cache": {"state": "hit", "answers": "miss"}</code> 示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
 <p><strong>决策头。</strong> Laya 是 <code>LayerNorm(d) → Linear(d,d) → GELU → Linear(d,1)</code>，每个选项出一个 logit。DUAN 用同样形态，但多一个按题型的偏置，作用在每个选项段结尾标记的隐藏状态上。</p>
 <p>score 题还要额外加序数嵌入，因为位置重计之后模型看不出档位顺序（<a href="docs/learn/encoder-decoder.html">encoder-decoder.md</a> 第 7.2 节）。</p>
 <p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找：先找完全匹配，逐级回退到更粗的桶。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
@@ -833,11 +833,10 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <li>在只有 CPU 的 Intel Mac 上就能跑通，成本是约 6 分钟编译加 644 MB 权重。</li>
 <li>三个缺陷全部复现：选项排列会改变答案，答案依赖标签字面，<code>act_probability</code> 不可用。</li>
 <li>同一 state 上的问题数从 1 增加到 10，耗时变成 7.3 倍，说明 state 没有复用。</li>
-<li>指标定义可以做逐位对拍：手算和工具报告一致到小数点后 6 位。</li>
+<li>指标定义可以做逐位对拍：手算和评测输出一致到小数点后 6 位。</li>
 </ul>
 </li>
 </ul>
-<p><strong>关于工具。</strong> 这次测量用一个现成的推理实现来跑 Laya。它在仓库的 <code>third_party/</code> 下，只是测量手段，不是被测对象。<strong>本文只讲它测出了什么，不讲怎么装的</strong>——那套命令依赖一个子模块，读者跑不了，写出来只会干扰。</p>
 <h2 id="环境"><a class="header" href="#环境">环境</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>项目</th><th>值</th></tr></thead><tbody>
 <tr><td>硬件</td><td>iMac19.1，Intel i5-8500 @ 3.0 GHz，6 线程，40 GB 内存；有 Radeon Pro 570X 4 GB 独显，本次全部在 CPU 上运行</td></tr>
@@ -855,14 +854,14 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <li><strong>起一个推理服务</strong>，加载 Laya 的 multilingual 权重，CPU 推理。</li>
 <li><strong>发三个请求</strong>，分别是一道 choice（<code>team</code>）、一道 score（<code>urgency</code>）、一道 noul（<code>churn</code>）。然后对同一道 choice 做四组改动：反转选项顺序、加一个错误选项、换成中性标签、原样。另外两题不动，作为对照。</li>
 <li><strong>扫两类规模</strong>：固定选项数改问题数（1 到 10），固定问题数改选项数（2 到 32），各跑三次取中位数。</li>
-<li><strong>在 7 行小套件上跑指标</strong>，把逐行概率导出来手算，和工具报告对拍。</li>
+<li><strong>在 7 行小套件上跑指标</strong>，把逐行概率导出来手算，和输出对拍。</li>
 </ol>
 <p>Qwen3 零样本另走一路：用 transformers 加载指令版，套聊天模板，只在候选集内归一化，读标签 token 的概率。</p>
 <h2 id="结果"><a class="header" href="#结果">结果</a></h2>
 <h3 id="成本"><a class="header" href="#成本">成本</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>步骤</th><th>耗时</th><th>说明</th></tr></thead><tbody>
-<tr><td>编译 CLI</td><td>3 分 02 秒</td><td>不需要额外的系统依赖</td></tr>
-<tr><td>编译训练器</td><td>3 分 24 秒</td><td>Burn 0.21 加 ndarray</td></tr>
+<tr><td>编译推理服务</td><td>3 分 02 秒</td><td>不需要额外的系统依赖</td></tr>
+<tr><td>编译训练器</td><td>3 分 24 秒</td><td>加 ndarray 后端</td></tr>
 <tr><td>下载权重</td><td>55 秒</td><td>644 MB</td></tr>
 <tr><td>加载模型</td><td>1.9 到 2.3 秒</td><td>每次进程启动，冷启动</td></tr>
 <tr><td>单次 3 个问题的请求</td><td>322 到 527 ms</td><td>包含进程启动和加载</td></tr>
@@ -912,10 +911,10 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <h3 id="指标对拍"><a class="header" href="#指标对拍">指标对拍</a></h3>
 <p>手写 7 行小套件，789 ms 出完整报告。工具会输出每行的 <code>gold</code>、<code>pred</code>、<code>confidence</code>、<code>correct</code> 和逐选项的 <code>probs</code>；加上 <code>--answers</code> 可以不加载模型重新评分。用这些逐行结果手算，和报告一致：</p>
 <pre><code class="language-text">手算       ECE=0.357176  Brier=0.573607  NLL=1.044533
-工具报告   ECE=0.3572    Brier=0.5736    NLL=1.0445
+评测输出   ECE=0.3572    Brier=0.5736    NLL=1.0445
 </code></pre>
 <p>同一份数据，T = 1.0 时 ECE 是 0.3572，T = 3.0 时是 0.1452。只有 7 条，这只能说明流程通，不能当结论。</p>
-<h3 id="参考实现和它自己的规格有出入"><a class="header" href="#参考实现和它自己的规格有出入">参考实现和它自己的规格有出入</a></h3>
+<h3 id="评测工具和它自己的文档有出入"><a class="header" href="#评测工具和它自己的文档有出入">评测工具和它自己的文档有出入</a></h3>
 <p>这两条影响的是工具，不是模型，记下来免得后面踩：</p>
 <ul>
 <li><strong>响应里没有 <code>cache</code> 字段。</strong> 规格的示例里有 <code>"cache": {"state": "hit", "answers": "miss"}</code>，但实测这一路不给这个字段。所以 P8 在 Laya 这一侧没有现成对照可读，要自己测。</li>
@@ -944,13 +943,13 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <h2 id="分析"><a class="header" href="#分析">分析</a></h2>
 <ul>
 <li>三个缺陷各有对应的解法：选项排列由<strong>分段布局</strong>（design.md 第 3.4 节）解决，<code>act_probability</code> 由 P6 的<strong>置信度头</strong>解决，标签依赖由<strong>中性标签增强</strong>解决。</li>
-<li>P1 不依赖任何模型权重。指标定义已经对上，<code>duan-calib</code> 的对拍测试可以直接调用参考实现。</li>
+<li>P1 不依赖任何模型权重。指标定义已经对上，<code>duan-calib</code> 的对拍测试可以直接复用同一套定义。</li>
 <li>没有跑官方的完整评测脚本，它们要下载约 3 GB 数据集，还要另装 Laya 的包。等 P4 要和公开数字逐行对比时再跑。</li>
 </ul>
 <p><strong>尚未验证：</strong></p>
 <ul>
 <li>模型打包格式，以及非 Laya 后端的 int8 量化路径；</li>
-<li>参考训练器在全量数据上的真实速度。本次只跑了 78 行、10 步，每秒 57 个 token，不能外推。</li>
+<li>训练器在全量数据上的真实速度。本次只跑了 78 行、10 步，每秒 57 个 token，不能外推。</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="欧冠球队的反事实对照laya-与-qwen3-06b-零样本"><a class="header" href="#欧冠球队的反事实对照laya-与-qwen3-06b-零样本">欧冠球队的反事实对照：Laya 与 Qwen3-0.6B 零样本</a></h1>
 <ul>
@@ -971,7 +970,7 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <tr><td>系统</td><td>macOS 24.6.0</td></tr>
 <tr><td>Python 环境</td><td>Python 3.12.8，torch 2.2.2，transformers 4.56.2，numpy 1.26.4</td></tr>
 <tr><td>duan 提交</td><td><code>5caf26f</code></td></tr>
-<tr><td>参考实现</td><td><code>50419ac</code>（0.1.8）。只用到编译好的推理二进制，不受子模块 <code>spec/</code> 下未提交改动的影响</td></tr>
+<tr><td>测量方式</td><td>用一个现成的推理服务加载 Laya 权重，CPU 上逐个请求</td></tr>
 <tr><td>基础模型</td><td>Laya：<code>convaiinnovations/laya</code> 的 <code>multilingual</code>，快照 <code>7b928d8</code>。Qwen3：<code>Qwen/Qwen3-0.6B</code>（指令版），快照 <code>c1899de</code></td></tr>
 <tr><td>Burn</td><td>未用到</td></tr>
 </tbody></table>

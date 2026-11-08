@@ -183,11 +183,10 @@
 <li>在只有 CPU 的 Intel Mac 上就能跑通，成本是约 6 分钟编译加 644 MB 权重。</li>
 <li>三个缺陷全部复现：选项排列会改变答案，答案依赖标签字面，<code>act_probability</code> 不可用。</li>
 <li>同一 state 上的问题数从 1 增加到 10，耗时变成 7.3 倍，说明 state 没有复用。</li>
-<li>指标定义可以做逐位对拍：手算和工具报告一致到小数点后 6 位。</li>
+<li>指标定义可以做逐位对拍：手算和评测输出一致到小数点后 6 位。</li>
 </ul>
 </li>
 </ul>
-<p><strong>关于工具。</strong> 这次测量用一个现成的推理实现来跑 Laya。它在仓库的 <code>third_party/</code> 下，只是测量手段，不是被测对象。<strong>本文只讲它测出了什么，不讲怎么装的</strong>——那套命令依赖一个子模块，读者跑不了，写出来只会干扰。</p>
 <h2 id="环境"><a class="header" href="#环境">环境</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>项目</th><th>值</th></tr></thead><tbody>
 <tr><td>硬件</td><td>iMac19.1，Intel i5-8500 @ 3.0 GHz，6 线程，40 GB 内存；有 Radeon Pro 570X 4 GB 独显，本次全部在 CPU 上运行</td></tr>
@@ -205,14 +204,14 @@
 <li><strong>起一个推理服务</strong>，加载 Laya 的 multilingual 权重，CPU 推理。</li>
 <li><strong>发三个请求</strong>，分别是一道 choice（<code>team</code>）、一道 score（<code>urgency</code>）、一道 noul（<code>churn</code>）。然后对同一道 choice 做四组改动：反转选项顺序、加一个错误选项、换成中性标签、原样。另外两题不动，作为对照。</li>
 <li><strong>扫两类规模</strong>：固定选项数改问题数（1 到 10），固定问题数改选项数（2 到 32），各跑三次取中位数。</li>
-<li><strong>在 7 行小套件上跑指标</strong>，把逐行概率导出来手算，和工具报告对拍。</li>
+<li><strong>在 7 行小套件上跑指标</strong>，把逐行概率导出来手算，和输出对拍。</li>
 </ol>
 <p>Qwen3 零样本另走一路：用 transformers 加载指令版，套聊天模板，只在候选集内归一化，读标签 token 的概率。</p>
 <h2 id="结果"><a class="header" href="#结果">结果</a></h2>
 <h3 id="成本"><a class="header" href="#成本">成本</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>步骤</th><th>耗时</th><th>说明</th></tr></thead><tbody>
-<tr><td>编译 CLI</td><td>3 分 02 秒</td><td>不需要额外的系统依赖</td></tr>
-<tr><td>编译训练器</td><td>3 分 24 秒</td><td>Burn 0.21 加 ndarray</td></tr>
+<tr><td>编译推理服务</td><td>3 分 02 秒</td><td>不需要额外的系统依赖</td></tr>
+<tr><td>编译训练器</td><td>3 分 24 秒</td><td>加 ndarray 后端</td></tr>
 <tr><td>下载权重</td><td>55 秒</td><td>644 MB</td></tr>
 <tr><td>加载模型</td><td>1.9 到 2.3 秒</td><td>每次进程启动，冷启动</td></tr>
 <tr><td>单次 3 个问题的请求</td><td>322 到 527 ms</td><td>包含进程启动和加载</td></tr>
@@ -262,10 +261,10 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <h3 id="指标对拍"><a class="header" href="#指标对拍">指标对拍</a></h3>
 <p>手写 7 行小套件，789 ms 出完整报告。工具会输出每行的 <code>gold</code>、<code>pred</code>、<code>confidence</code>、<code>correct</code> 和逐选项的 <code>probs</code>；加上 <code>--answers</code> 可以不加载模型重新评分。用这些逐行结果手算，和报告一致：</p>
 <pre><code class="language-text">手算       ECE=0.357176  Brier=0.573607  NLL=1.044533
-工具报告   ECE=0.3572    Brier=0.5736    NLL=1.0445
+评测输出   ECE=0.3572    Brier=0.5736    NLL=1.0445
 </code></pre>
 <p>同一份数据，T = 1.0 时 ECE 是 0.3572，T = 3.0 时是 0.1452。只有 7 条，这只能说明流程通，不能当结论。</p>
-<h3 id="参考实现和它自己的规格有出入"><a class="header" href="#参考实现和它自己的规格有出入">参考实现和它自己的规格有出入</a></h3>
+<h3 id="评测工具和它自己的文档有出入"><a class="header" href="#评测工具和它自己的文档有出入">评测工具和它自己的文档有出入</a></h3>
 <p>这两条影响的是工具，不是模型，记下来免得后面踩：</p>
 <ul>
 <li><strong>响应里没有 <code>cache</code> 字段。</strong> 规格的示例里有 <code>"cache": {"state": "hit", "answers": "miss"}</code>，但实测这一路不给这个字段。所以 P8 在 Laya 这一侧没有现成对照可读，要自己测。</li>
@@ -294,13 +293,13 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <h2 id="分析"><a class="header" href="#分析">分析</a></h2>
 <ul>
 <li>三个缺陷各有对应的解法：选项排列由<strong>分段布局</strong>（design.md 第 3.4 节）解决，<code>act_probability</code> 由 P6 的<strong>置信度头</strong>解决，标签依赖由<strong>中性标签增强</strong>解决。</li>
-<li>P1 不依赖任何模型权重。指标定义已经对上，<code>duan-calib</code> 的对拍测试可以直接调用参考实现。</li>
+<li>P1 不依赖任何模型权重。指标定义已经对上，<code>duan-calib</code> 的对拍测试可以直接复用同一套定义。</li>
 <li>没有跑官方的完整评测脚本，它们要下载约 3 GB 数据集，还要另装 Laya 的包。等 P4 要和公开数字逐行对比时再跑。</li>
 </ul>
 <p><strong>尚未验证：</strong></p>
 <ul>
 <li>模型打包格式，以及非 Laya 后端的 int8 量化路径；</li>
-<li>参考训练器在全量数据上的真实速度。本次只跑了 78 行、10 步，每秒 57 个 token，不能外推。</li>
+<li>训练器在全量数据上的真实速度。本次只跑了 78 行、10 步，每秒 57 个 token，不能外推。</li>
 </ul>
 
                     </main>
