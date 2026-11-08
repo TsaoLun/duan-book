@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>P0 反事实对照：欧冠俱乐部 - DUAN</title>
+        <title>反事实对照：欧冠俱乐部 - DUAN</title>
 
 
         <!-- Custom HTML head -->
@@ -193,7 +193,7 @@
 <tr><td>系统</td><td>macOS 24.6.0</td></tr>
 <tr><td>Python 环境</td><td>Python 3.12.8，torch 2.2.2，transformers 4.56.2，numpy 1.26.4</td></tr>
 <tr><td>duan 提交</td><td><code>5caf26f</code></td></tr>
-<tr><td>kime 提交</td><td><code>50419ac</code>（0.1.8）。子模块 <code>spec/</code> 下有 5 个文件未提交的改动，本实验只用到编译好的 <code>kime serve</code>，不受影响</td></tr>
+<tr><td>参考实现</td><td><code>50419ac</code>（0.1.8）。只用到编译好的推理二进制，不受子模块 <code>spec/</code> 下未提交改动的影响</td></tr>
 <tr><td>基础模型</td><td>Laya：<code>convaiinnovations/laya</code> 的 <code>multilingual</code>，快照 <code>7b928d8</code>。Qwen3：<code>Qwen/Qwen3-0.6B</code>（指令版），快照 <code>c1899de</code></td></tr>
 <tr><td>Burn</td><td>未用到</td></tr>
 </tbody></table>
@@ -212,19 +212,12 @@
 </div>
 <p><code>italian.json</code> 是反事实对照：按材料该选 Roma，按事实 Roma 从没拿过欧冠。读材料的模型选 Roma，凭记忆的模型会选 Bayern。<code>p0-billing.json</code> 是 Laya 擅长的路由题，用来看 Qwen3 的读法换到这类题上表现如何。</p>
 <h2 id="命令"><a class="header" href="#命令">命令</a></h2>
-<pre><code class="language-bash"># Laya，服务开着时逐个请求（在 third_party/kime 下启动）
-./target/release/kime serve --model laya-multilingual --port 8111 --device cpu &amp;
-cd experiments/2026-11-04-p0-club-counterfactual
-for f in requests/*.json; do
-  curl -s localhost:8111/v1/systemone -H 'content-type: application/json' -d @$f \
-    | python3 -m json.tool --no-ensure-ascii &gt; results/laya/$(basename $f)
-done
-
-# Qwen3-0.6B 零样本（在 DUAN 仓库根目录，环境见 tools/ref/README.md）
-E=experiments/2026-11-04-p0-club-counterfactual
-python tools/ref/qwen_choice_probe.py --generate $E/requests/*.json &gt; $E/results/qwen3-0.6b.jsonl
-python tools/ref/qwen_choice_probe.py --prefix '' $E/requests/*.json &gt; $E/results/qwen3-0.6b-noprefix.jsonl
-</code></pre>
+<h2 id="怎么测的"><a class="header" href="#怎么测的">怎么测的</a></h2>
+<p>两类请求，各跑一遍：</p>
+<ul>
+<li><strong>Laya</strong>：起一个推理服务，逐个发送 <code>requests/</code> 下的 JSON，直接拿响应。</li>
+<li><strong>Qwen3-0.6B 零样本</strong>：用 transformers 加载指令版，套聊天模板，读标签 token 的概率。跑两次，一次带作答前缀、一次不带，用来观察第四个陷阱。</li>
+</ul>
 <p>两个模型都是确定性的，重复运行结果逐位相同。没有随机种子。</p>
 <h2 id="结果"><a class="header" href="#结果">结果</a></h2>
 <h3 id="成本"><a class="header" href="#成本">成本</a></h3>
@@ -280,11 +273,11 @@ python tools/ref/qwen_choice_probe.py --prefix '' $E/requests/*.json &gt; $E/res
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../../experiments/2026-11-02-p0-laya-baseline/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../../tools/ref/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../../docs/learn/glossary.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -294,11 +287,11 @@ python tools/ref/qwen_choice_probe.py --prefix '' $E/requests/*.json &gt; $E/res
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../../experiments/2026-11-02-p0-laya-baseline/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../../tools/ref/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../../docs/learn/glossary.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

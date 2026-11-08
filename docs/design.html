@@ -175,7 +175,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="duan-模型规格"><a class="header" href="#duan-模型规格">DUAN 模型规格</a></h1>
-<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。<a href="plan.html">plan.md</a> 的每个里程碑都是为了把这里的某一节做出来，learn/ 的每个学习单元都是为了能看懂、做出某一节。</p>
+<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。plan.md 的每个里程碑都是为了把这里的某一节做出来，learn/ 的每个学习单元都是为了能看懂、做出某一节。</p>
 <p>规格里写「待定」的地方，都注明由哪个阶段的哪个实验来定。实验定下来以后改这份文档，不另写。</p>
 <h2 id="1-目标与非目标"><a class="header" href="#1-目标与非目标">1. 目标与非目标</a></h2>
 <p><strong>目标：</strong> 一个中文为主的 System One 决策模型。输入一段 state 和若干问题（choice、score、noul），一次前向输出每个问题的校准概率。</p>
@@ -190,17 +190,17 @@
 <li>不生成文本，不做对话。</li>
 <li>不复刻 Jev 的内部结构。</li>
 <li>不追求亚毫秒延迟。那条路要走蒸馏，见 P8。</li>
-<li>不做 kime 的 HTTP 服务。DUAN 的输出格式和 kime 保持一致，需要服务时接到 kime 上，而不是另写一个服务。</li>
+<li>不做 HTTP 服务。DUAN 提供模型和推理库，需要服务时接一层，而不是把它做进模型。</li>
 </ul>
-<h2 id="2-沿用-kime-的部分"><a class="header" href="#2-沿用-kime-的部分">2. 沿用 kime 的部分</a></h2>
-<p>下面这些部分和模型结构无关，直接沿用 kime 的定义，这里不复述。按同一套定义算出来的数字，可以直接和 kime 的报告比较。</p>
-<div class="table-wrapper"><table><thead><tr><th>内容</th><th>kime 的出处</th><th>DUAN 里的位置</th></tr></thead><tbody>
-<tr><td>请求格式，三种题型的答案字段</td><td><code>spec/03-api.md</code>、<code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
-<tr><td>置信度的两个公式（Jev 公式和熵公式）</td><td><code>spec/04-semantics.md</code></td><td>第 5 节</td></tr>
-<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td><code>spec/04-semantics.md</code></td><td>第 6 节，<code>crates/duan-calib</code></td></tr>
-<tr><td>训练数据格式、增强、防泄漏规则</td><td><code>spec/12-training.md</code>、<code>tools/data/README.md</code></td><td><code>tools/data</code></td></tr>
-<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td><code>crates/kime-eval/src/metrics.rs</code></td><td><code>crates/duan-calib</code></td></tr>
-<tr><td>适当评分规则损失、RPS</td><td><code>spec/12-training.md</code></td><td>第 6 节</td></tr>
+<h2 id="2-固定下来的约定"><a class="header" href="#2-固定下来的约定">2. 固定下来的约定</a></h2>
+<p>下面这些约定和模型结构无关，但整个项目都按同一套执行，这里只列结论，不重复推导。<strong>统一它们的理由</strong>是：只有口径一致，报告里的数字才能和别处比较。</p>
+<div class="table-wrapper"><table><thead><tr><th>内容</th><th>约定</th></tr></thead><tbody>
+<tr><td>请求格式，三种题型的答案字段</td><td>第 5 节</td></tr>
+<tr><td>置信度的两个公式（Jev 公式和熵公式）</td><td>第 5 节</td></tr>
+<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td>第 6 节，<code>crates/duan-calib</code></td></tr>
+<tr><td>训练数据格式、增强、防泄漏规则</td><td><code>tools/data</code></td></tr>
+<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td><code>crates/duan-calib</code></td></tr>
+<tr><td>适当评分规则损失、RPS</td><td>第 6 节</td></tr>
 </tbody></table>
 </div>
 <h2 id="3-输入布局"><a class="header" href="#3-输入布局">3. 输入布局</a></h2>
@@ -221,7 +221,7 @@
 <tr><td>选项段 (j, i)</td><td>整个 state 块、整个问题块 j，以及选项段 (j, i) 中自己之前的 token</td></tr>
 </tbody></table>
 </div>
-<p>问题块之间互不可见，选项段之间也互不可见。所以，同一个请求里多问一个问题，不会改变其他问题的答案。这条性质正对应 kime 增强表里「Distractor questions in the same request」要达到的效果，但在 DUAN 里它由结构保证，不需要靠训练学会。</p>
+<p>问题块之间互不可见，选项段之间也互不可见。所以，同一个请求里多问一个问题，不会改变其他问题的答案。通常这个性质要靠「在同一请求里塞干扰问题」的数据增强来训练，而在这里它由结构保证，不需要训练。</p>
 <h3 id="33-位置"><a class="header" href="#33-位置">3.3 位置</a></h3>
 <p>RoPE 位置也要随块重计：</p>
 <ul>
@@ -237,7 +237,7 @@
 <p><strong>交换两个选项，只会交换它们的 logit。</strong> 选项翻转率按构造为 0，测出来不为 0 的部分只是浮点误差。</p>
 </li>
 <li>
-<p><strong>选项可以分批前向，结果不变。</strong> 每个选项段只依赖前缀和它自己，所以超长的选项列表可以拆成几批来算，logits 相同。这与 kime-v1 的差别要分清：kime-v1 的选项段彼此看不见，但<strong>共用同一行里的所有标记</strong>，所以跨块的标记集合不同、logit 尺度也不同，跨块不可比，必须靠「随机分块」增强（<code>spec/12-training.md</code>）。DUAN 的选项段之间连共享标记都没有，任何分块下每段的计算都与单独前向一致，不需要这项增强。</p>
+<p><strong>选项可以分批前向，结果不变。</strong> 每个选项段只依赖前缀和它自己，所以超长的选项列表可以拆成几批来算，logits 相同。这与<strong>拆分编码器</strong>（第 4.1 节的 C 方案）的差别要分清：那一类方案的选项段彼此看不见，但<strong>共用同一行里的所有标记</strong>，所以跨块的标记集合不同、logit 尺度也不同，跨块不可比，必须靠「随机分块」增强。DUAN 的选项段之间连共享标记都没有，任何分块下每段的计算都与单独前向一致，不需要这项增强。</p>
 <p>注意「结果不变」的严格程度：批形状改变会改变矩阵乘的归约顺序，所以只保证数值等价到浮点误差，不保证 bit-exact。</p>
 </li>
 <li>
@@ -268,11 +268,11 @@
 </ul>
 <p><strong>待定（P3）：</strong> 用分词器确认实际用到的 id 数和空行范围，然后在这里写死每个标记的 id。</p>
 <h3 id="37-长度预算"><a class="header" href="#37-长度预算">3.7 长度预算</a></h3>
-<p>先沿用 kime native 家族的预算：</p>
+<p>预算取值如下：</p>
 <div class="table-wrapper"><table><thead><tr><th>内容</th><th>预算</th></tr></thead><tbody>
 <tr><td>每个选项</td><td>64 个 token</td></tr>
 <tr><td>instructions</td><td>512 个 token</td></tr>
-<tr><td>每个问题的选项数</td><td>255 个（默认；开 <code>kime.shortlist</code> 可到 4096）</td></tr>
+<tr><td>每个问题的选项数</td><td>255 个</td></tr>
 </tbody></table>
 </div>
 <p>超出预算的部分从尾部截断，并在截断处放一个 <code>⟨cut⟩</code>。</p>
@@ -292,7 +292,7 @@
 <div class="table-wrapper"><table><thead><tr><th>方案</th><th>每个问题的前向</th><th>打分</th><th>state 编码次数</th><th>选项位置偏差</th><th>state 能否复用</th><th>需要的额外结构</th></tr></thead><tbody>
 <tr><td>A. 沿用 Laya compat（ModernBERT，全序列一次前向）</td><td>1</td><td>listwise</td><td>每问题 1 次</td><td>有，实测翻转率 0.0013–0.160</td><td>否</td><td>无，但三条性质一条都不成立</td></tr>
 <tr><td>B. 标准编码器逐项打分</td><td>k（每选项 1 次）</td><td>pointwise</td><td>k 次</td><td>无</td><td>否</td><td>无</td></tr>
-<tr><td>C. kime-v1 拆分编码器</td><td>1（每 32 个选项一块）</td><td>介于两者之间：段间互不可见，但共用标记可互比</td><td>1 次</td><td>无</td><td>是，状态缓存</td><td>state 塔、问题塔、cross-attention、蒸馏</td></tr>
+<tr><td>C. 拆分编码器</td><td>1（每 32 个选项一块）</td><td>介于两者之间：段间互不可见，但共用标记可互比</td><td>1 次</td><td>无</td><td>是，状态缓存</td><td>state 塔、问题塔、cross-attention、蒸馏</td></tr>
 <tr><td>D. 编码器加自定义分段掩码</td><td>1</td><td>pointwise</td><td>1 次</td><td>无</td><td>是</td><td>手写段级掩码与位置重计；权重没在这种可见范围下训过</td></tr>
 <tr><td><strong>E. Qwen3-0.6B-Base 因果解码器（采用）</strong></td><td>1</td><td>pointwise</td><td>1 次</td><td>按构造为 0</td><td>是，由结构白送</td><td>只需 <code>forward_with(ids, positions, bias, caches)</code></td></tr>
 </tbody></table>
@@ -302,14 +302,14 @@
 <ul>
 <li><strong>A 不行，它的代价是结构性的。</strong> state 和问题从第 0 层就互相可见，什么都缓存不下来。实测同一 state 上问题数 1 → 10，耗时 7.3 倍（P0 实测记录）——而 P8 的验收标准就是用这个场景，说明它不是边界情况。</li>
 <li><strong>B 不行，成本随选项数线性增长。</strong> 每个选项一次完整前向，长 state 被重复编码 k 次，而 k 最大到 255（第 3.7 节）。</li>
-<li><strong>C 可行，但要付两次钱。</strong> 它靠多一套结构和教师蒸馏把「state 只算一次」换回来（kime <code>spec/05-model.md</code> 的 Why a split），代价是 state 的表示不能随问题调整。这个精度损失要等实测才知道。kime 愿意付，是因为它要在同一套 ModernBERT 权重上和 Laya 对拍；DUAN 没有这个包袱。</li>
+<li><strong>C 可行，但要付两次钱。</strong> 它靠多一套结构和教师蒸馏把「state 只算一次」换回来，代价是 state 的表示不能随问题调整。这个精度损失要等实测才知道。它愿意付，是因为要在同一套 ModernBERT 权重上和 Laya 对拍；DUAN 没有这个包袱。</li>
 <li><strong>D 原理上可行，但它是在编码器里手工重建因果结构。</strong> 加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</li>
 <li><strong>E 是唯一「布局直接落地、不需要额外结构」的一条。</strong> 第 3.4 节那三条性质都是它的推论，而不是需要训练才能学会的行为。</li>
 </ul>
 <p>这条选择的两个前提，要分清哪个已经确定、哪个还要检验：</p>
 <ul>
 <li><strong>结构收益是确定的。</strong> 前向次数、state 复用、置换不变性都可以从第 3 节直接推出来，与权重无关。</li>
-<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，P4 就是用来检验它的（<a href="plan.html">plan.md</a> 的「风险」）。输了照实报告差距，并重新评估这个选择。</li>
+<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，P4 就是用来检验它的（plan.md 的「风险」）。输了照实报告差距，并重新评估这个选择。</li>
 </ul>
 <p>代价有三条，都写进了验收或后续阶段，不是遗留问题：</p>
 <ul>
@@ -350,24 +350,24 @@ p   = softmax(z / T)                 只在同一个问题的 k 个选项之间�
 <p>各部分的形状和初始化：</p>
 <ul>
 <li><code>W_a</code> 是 [d, d]，<code>W_b</code> 是 [1, d]，<code>b_type</code> 是 [3]，每种题型一个偏置。</li>
-<li><code>ord_emb(i, k)</code> 是一个线性映射，输入是 4 个特征 <code>[i/(k-1), (i/(k-1))^2, sin(π·i/(k-1)), cos(π·i/(k-1))]</code>，输出维度是 d。这和 kime-v1 相同。</li>
+<li><code>ord_emb(i, k)</code> 是一个线性映射，输入是 4 个特征 <code>[i/(k-1), (i/(k-1))^2, sin(π·i/(k-1)), cos(π·i/(k-1))]</code>，输出维度是 d。拆分编码器用的是同一套。</li>
 <li>新权重都按 std 0.02 初始化，<code>W_b</code> 和 <code>b_type</code> 初始化为 0。这样训练开始时所有选项的 logit 相等，概率是均匀分布。</li>
 </ul>
-<p><strong>从 p 得到答案字段，按 kime <code>spec/04-semantics.md</code>：</strong></p>
+<p><strong>从 p 得到答案字段：</strong></p>
 <ul>
 <li><strong>choice：</strong> <code>choice = argmax p</code>。<code>confidence</code> 默认用 Jev 公式 <code>clip((max p − 1/k) / (1 − 1/k))</code>，也可以选熵公式 <code>1 − H(p)/ln k</code>。</li>
 <li><strong>score：</strong> <code>score = Σ i·p_i</code>，<code>confidence</code> 用 Jev 的平均绝对偏差形式。</li>
 <li><strong>noul：</strong> <code>noul = p[1]</code>，默认不输出 <code>confidence</code>。</li>
 </ul>
-<p>三者都带 <code>action.act_probability</code>（Laya compat 响应）或 <code>kime.answers.&lt;id&gt;.action.act_probability</code>（扩展块）。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 在 P6 训练一个置信度头，AUROC 不高于 max(p) 就不发布它（P6 完成标准）。</p>
-<p><strong>待定（P4）：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先按 kime 加在输出端，P4 做一次对照。</p>
+<p>三者都带 <code>action.act_probability</code>。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 在 P6 训练一个置信度头，AUROC 不高于 max(p) 就不发布它（P6 完成标准）。</p>
+<p><strong>待定（P4）：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先加在输出端，P4 做一次对照。</p>
 <h2 id="6-训练与校准"><a class="header" href="#6-训练与校准">6. 训练与校准</a></h2>
 <p><strong>损失，每个问题一项：</strong></p>
 <pre><code class="language-text">L = ProperScoreLoss(p, t) + w_ord · RPS(p, t)    RPS 只用于 score，w_ord = 1.0
 ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i) / ||p||_2 )
 </code></pre>
-<p>这和 kime 的定义一致。DUAN 没有教师模型，也没有拆成两个塔，所以 kime 的 KD 项、隐藏状态蒸馏项和 shortlist 项都不用。P4 对比 proper、ce、pg 三种损失，结论写回这一节。</p>
-<p><strong>增强：</strong> 沿用 kime 增强表中和结构有关的几项：</p>
+<p>DUAN 没有教师模型，也没有拆成两个塔，所以知识蒸馏项、隐藏状态蒸馏项和短名单项都不用。P4 对比 proper、ce、pg 三种损失，结论写回这一节。</p>
+<p><strong>增强：</strong> 只做和结构有关的几项：</p>
 <ul>
 <li>打乱 choice 选项的顺序；</li>
 <li>把 score 的档位镜像（50%）；</li>
@@ -386,7 +386,7 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <p><strong>校准：</strong></p>
 <ul>
 <li>P1 先在留出集上拟合一个温度 T。</li>
-<li>P6 改成按（题型、k 桶、语言组）分桶拟合，写出 kime 格式的 <code>calibration.json</code>。</li>
+<li>P6 改成按（题型、k 桶、语言组）分桶拟合，写出 <code>calibration.json</code>。</li>
 <li>拟合时和推理时用同一个裁剪范围 [0.25, 8.0]。</li>
 <li>校准只在人工标注的数据上报告。</li>
 </ul>
@@ -412,18 +412,18 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <tr><td>序数嵌入加在输入端还是输出端</td><td>P4</td><td>score 题上的 RPS 和镜像一致性</td></tr>
 <tr><td>损失：proper、ce 还是 pg</td><td>P4</td><td>比较 NLL 和 ECE</td></tr>
 <tr><td>标记放在选项前面的布局</td><td>P4</td><td>只作为对照组，用来证明第 3.4 节的性质，不会被采用</td></tr>
-<tr><td><strong>单次前向的最大选项数</strong></td><td>P3</td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用 kime native 的预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
+<tr><td><strong>单次前向的最大选项数</strong></td><td>P3</td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用的既有预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
 </tbody></table>
 </div>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../docs/learn/dataflow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../docs/plan.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../experiments/2026-11-02-p0-laya-baseline/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -433,11 +433,11 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../docs/learn/dataflow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../docs/plan.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../experiments/2026-11-02-p0-laya-baseline/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

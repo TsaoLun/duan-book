@@ -226,7 +226,7 @@
 <p>麻烦就在这儿：<strong>同一道题的三个选项，是在三种不同的信息条件下被打分的。</strong> 排在后面的能看见前面的，排在前面的看不见后面的。</p>
 <p>后果很具体：<strong>换个顺序，答案就可能变。</strong></p>
 <p>这个改不了。训练再多也不行——在训练集上，模型能学到「如果 billing 排在第一位，它更可能是答案」这种规律，而这条规律在真实世界里是假的，纯粹是排版造出来的。</p>
-<p>这个现象叫选项翻转率。kime 在 Laya 上测过，那是同一套权重、同一批题，只改顺序：</p>
+<p>这个现象叫选项翻转率。有人在同一套权重、同一批题上测过，只改选项顺序：</p>
 <div class="table-wrapper"><table><thead><tr><th>数据集</th><th>选项数</th><th>翻转率</th><th>至少翻过一次的题</th></tr></thead><tbody>
 <tr><td>XNLI</td><td>3</td><td>0.0013</td><td>0.33%</td></tr>
 <tr><td>Emotion</td><td>6</td><td>0.0477</td><td>11.0%</td></tr>
@@ -257,7 +257,7 @@
 </code></pre>
 <p>每次只放一个选项，<code>o₂</code> 压根不在 <code>o₁</code> 那次前向里，交换顺序当然不影响任何东西。这就是编码器天然的置换不变性。</p>
 <p>代价很直接：三个选项三次前向。而且 state 那么长，每次都重新编码一遍。</p>
-<p>选项数上去就很吓人。kime 的默认上限是每问题 255 个选项（开了 <code>kime.shortlist</code> 可以到 4096），照这个做法就是 255 次完整前向，每次都把整段 state 过一遍。</p>
+<p>选项数上去就很吓人。一个常见的上限是每问题 255 个选项，照这个做法就是 255 次完整前向，每次都把整段 state 过一遍。</p>
 <h2 id="6-解码器能不能也切开"><a class="header" href="#6-解码器能不能也切开">6. 解码器能不能也切开</a></h2>
 <p>能。这就是 DUAN 的做法。</p>
 <p>想法是把三个选项排在同一个序列里，但让它们互相看不见：</p>
@@ -313,13 +313,13 @@
 <p>那「互相看得见」到底多给了什么？</p>
 <p>多给的是<strong>信息</strong>。模型知道「候选集里还有别的什么」，可以据此调整判断，比如学到「如果 legal 也在候选里，这单更可能是 billing」。这个信息切开之后就没了。</p>
 <p>这是真的损失，不是能糊弄过去的。但它不是「没法选」，是「少了一点上下文」。</p>
-<p>kime-v1 走了条中间路线，机制值得看一眼，因为它说明了「可比较性」到底靠什么实现。</p>
-<p>它的掩码规则是这样的（kime <code>spec/05-model.md</code>）：</p>
+<p>还有一个中间方案值得看一眼，因为它说明了「可比较性」到底靠什么实现。</p>
+<p>这个方案叫<strong>拆分编码器</strong>：把 state 交给一个编码器算一次并缓存，然后让问题和选项走另一套带 cross-attention 的结构。选项之间怎么摆，它有自己的答案——<strong>互不可见，但看得见彼此的标记</strong>：</p>
 <pre><code class="language-text">问题头 token  →  看问题头 + 所有选项的标记
 选项 body    →  看问题头 + 自己这一段 + 所有选项的标记
 选项标记     →  看问题头 + 自己这一段 + 所有标记
 </code></pre>
-<p>关键在第二行和第三行的「所有选项的标记」。<strong>选项 body 看不见别的选项的正文，但看得见每一个选项的标记。</strong></p>
+<p>关键在第二行和第三行：<strong>选项 body 看不见别的选项的正文，但看得见每一个选项的标记。</strong></p>
 <p>打个比方：三个人分别在小房间里，看不见彼此的纸条，但能看见墙上挂着的三张标签。于是谁都能说「我这张纸条和墙上那三张标签是什么关系」，间接地把自己和同伴放在同一个坐标里。</p>
 <p>这就是「介于 pointwise 和 listwise 之间」的确切含义：</p>
 <div class="table-wrapper"><table><thead><tr><th>像 pointwise 的地方</th><th>像 listwise 的地方</th></tr></thead><tbody>
@@ -327,10 +327,10 @@
 <tr><td>没有位置偏差（段位置都重算）</td><td>分数隐含依赖「这一组里还有谁」</td></tr>
 </tbody></table>
 </div>
-<p><strong>代价也随之而来。</strong> 那个「墙上的标签」是同一组，只在同一行里成立。选项超过 32 个要切块，每块是独立的一行、墙上挂的是不同的标签集合——于是<strong>跨块的分数没法直接比</strong>。所以 kime-v1 必须靠随机分块训练，让模型学会在任意分块下都给出可比的分数。</p>
+<p><strong>代价也随之而来。</strong> 那个「墙上的标签」是同一组，只在同一行里成立。选项超过 32 个要切块，每块是独立的一行、墙上挂的是不同的标签集合——于是<strong>跨块的分数没法直接比</strong>。所以这类方案必须靠随机分块训练，让模型学会在任意分块下都给出可比的分数。</p>
 <p>DUAN 把这条路也切断了：连标记通道都不要，每段只看得见前缀和自己。换来的是任何分块下每段都独立算、跨块天然可比；付出的是候选集上下文。</p>
-<p>顺带解释一个术语：上文说的「标记通道」，指的就是「选项能看到别的选项的标记」这条信息路径。kime-v1 留着它，DUAN 切掉它。</p>
-<p><strong>分块到底会造成多大差异，可以看一个实测。</strong> 这个数字来自 kime 的 chunking 报告，不过要注意它测的是 <strong>Laya，不是 kime-v1</strong>——它是 <code>--model laya</code> 跑出来的，正文第一句写「Laya English through kime on an M4 with Metal」，结尾说「the gate is for kime-v1 (#44) and this run is its baseline」，也就是拿 Laya 当 kime-v1 的基线。</p>
+<p>（「标记通道」这个词，指的就是「选项能看到别的选项的标记」这条信息路径。拆分编码器留着它，DUAN 切掉它。）</p>
+<p><strong>分块到底会造成多大差异，可以看一个实测。</strong> 这个实测跑的是 <strong>Laya</strong>（一个现成的编码器决策模型），不是上面那个拆分编码器。这一点很重要：<strong>它的数字衡量的是 Laya 的分块行为，不能直接套到拆分方案上。</strong></p>
 <p><strong>先说清实验设置。</strong> 300 道 banking77 题，每题 64 个选项（金标 + 63 个随机抽）。三种跑法：一次跑完，以及按 <strong>8 / 16 / 32 个一块</strong>分别跑（注意这是三种<strong>块大小</strong>，不是「切成三块」——64 个选项按 8 切是 8 块，按 32 切是 2 块）。</p>
 <div class="table-wrapper"><table><thead><tr><th>对照</th><th>一致率</th></tr></thead><tbody>
 <tr><td>一次跑 vs 块 8</td><td>0.623</td></tr>
@@ -364,8 +364,8 @@
 <p>一份工单的紧急程度可以打 1 到 5 分。这五个档位本身有方向：1 分和 2 分是相邻的，1 分和 5 分是完全相反的两端。</p>
 <p>位置重算把这层顺序抹掉了——五个档位段的位置都一样，模型看不出哪个是第一档、哪个是第五档。所以要另外把顺序喂给模型：</p>
 <p>$$u_i = h_i + \mathrm{ord_emb}(i, k)$$</p>
-<p><code>i</code> 是第几档，<code>k</code> 是一共几档。这个向量是学出来的，输入四个数：<code>[i/(k-1), (i/(k-1))², sin(πi/(k-1)), cos(πi/(k-1))]</code>。kime 和 DUAN 用的是同一套。</p>
-<p><strong>加在哪里还有待定。</strong> design.md 目前先按 kime 的做法加在<strong>输出端</strong>（就是上面这个式子，$h_i$ 是标记的隐藏状态，加完再进打分器）。另一个选择是加在<strong>输入端</strong>的 <code>⟨lvl⟩</code> 嵌入上，让主干从第一层就能看到档位。两种都说得通，P4 做一次对照来定。</p>
+<p><code>i</code> 是第几档，<code>k</code> 是一共几档。这个向量是学出来的，输入四个数：<code>[i/(k-1), (i/(k-1))², sin(πi/(k-1)), cos(πi/(k-1))]</code>。</p>
+<p><strong>加在哪里还有待定。</strong> design.md 目前先加在<strong>输出端</strong>（就是上面这个式子，$h_i$ 是标记的隐藏状态，加完再进打分器）。另一个选择是加在<strong>输入端</strong>的 <code>⟨lvl⟩</code> 嵌入上，让主干从第一层就能看到档位。两种都说得通，P4 做一次对照来定。</p>
 <p>差别只在「模型第几层开始知道档位」：加在输入端，前 28 层都能用这个信息；加在输出端，只有最后的打分器知道。这不是「是否引入顺序」的差别——两种都引入了。</p>
 <p>为什么补这个不算「又把位置偏差带回来了」？</p>
 <p>因为抹掉的和补上的不是同一样东西。位置重算抹掉的是「谁排在序列前面」——那是渲染顺序造成的偶然事实。ord_emb 补的是「这是第几档」——那是数据本身的属性。调用方把档位倒过来传，ord_emb 跟着倒，答案也应该跟着倒。</p>
@@ -385,15 +385,15 @@
 <div class="table-wrapper"><table><thead><tr><th>做法</th><th>一次前向的单位</th><th>state 编码几次</th><th>选项之间</th><th>换顺序会变吗</th></tr></thead><tbody>
 <tr><td>标准编码器</td><td>一个（state, 问题, 选项）</td><td>每选项 1 次</td><td>不在同一序列</td><td>不会</td></tr>
 <tr><td>Laya</td><td>一个（state, 问题）</td><td>每问题 1 次</td><td>互相看得见</td><td>会</td></tr>
-<tr><td>kime-v1</td><td>一个（state, 问题块），块 ≤ 32 选项</td><td>1 次（可缓存）</td><td>看不见，但共用标记</td><td>块内不会，跨块不可比</td></tr>
+<tr><td>拆分编码器</td><td>一个（state, 问题块），块 ≤ 32 选项</td><td>1 次（可缓存）</td><td>看不见，但共用标记</td><td>块内不会，跨块不可比</td></tr>
 <tr><td><strong>DUAN</strong></td><td><strong>整个请求</strong>（state + 全部问题 + 全部选项）</td><td>1 次（可缓存）</td><td>看不见，也不共用任何东西</td><td>按构造不会</td></tr>
 </tbody></table>
 </div>
 <p>从第一行看到最后一行，就是「一次前向装的东西越来越多」：一个选项 → 一个问题 → 一个块 → 整个请求。</p>
 <p>两个容易读错的格子：</p>
 <ul>
-<li><strong>Laya 不是「每个请求一次」。</strong> 它是 <code>One sequence per question</code>（kime <code>spec/06-input.md</code>），一个请求里有 10 个问题就跑 10 次。实测问题数 1 → 10 耗时 7.3 倍，正是这个线性关系的证据。</li>
-<li><strong>kime-v1 的 64 选项不是两块就完事。</strong> 选项超过 32 个时，先按块打分，再把概率最高的 16 个合起来重打一次（<code>spec/04-semantics.md</code>）。所以 64 选项 = 2 次分块前向 + 1 次联合重打。</li>
+<li><strong>Laya 不是「每个请求一次」。</strong> 它每个问题一条序列，一个请求里有 10 个问题就跑 10 次。实测问题数 1 → 10 耗时 7.3 倍，正是这个线性关系的证据。</li>
+<li><strong>拆分编码器的 64 选项不是两块就完事。</strong> 选项超过 32 个时，先按块打分，再把概率最高的 16 个合起来重打一次。所以 64 选项 = 2 次分块前向 + 1 次联合重打。</li>
 </ul>
 <p>DUAN 那一行的「按构造不会」是设计推论，还没有实测——P4 会用「标记放在选项前面」的布局做对照量出来。</p>
 <h2 id="9-三个容易讲错的地方"><a class="header" href="#9-三个容易讲错的地方">9. 三个容易讲错的地方</a></h2>
@@ -409,17 +409,17 @@
 <li>选项之间不能互相比，为什么 choice 还能做对？写出那个等式，并说明 listwise 多出来的到底是什么。（§7.1）</li>
 <li>ord_emb 加回顺序为什么不破坏置换不变性？加在输入端和输出端有区别吗？（§7.2）</li>
 <li>「十个问题共享前缀」，共享的是哪一段？<code>q</code> 能不能也缓存？（§7.3）</li>
-<li>为什么校准要按选项数量分桶？（§7.3 末尾没有直接讲，答案要合起来看：softmax 的分母受 k 影响，所以温度要按 k 分桶才准。详见 <code>design.md</code> 第 6 节和 kime <code>spec/04-semantics.md</code>）</li>
+<li>为什么校准要按选项数量分桶？（§7.3 末尾没有直接讲，答案要合起来看：softmax 的分母受 k 影响，所以温度要按 k 分桶才准。详见 <code>design.md</code> 第 6 节）</li>
 </ol>
 <p>第 7 题正文里没展开，因为它是校准的话题，属于 P1、P6 的内容。这里只需要记住结论：<strong>k 变了，softmax 的形状就变，同一个温度不再适用。</strong></p>
 <h2 id="11-数据出处"><a class="header" href="#11-数据出处">11. 数据出处</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>数字</th><th>含义</th><th>条件</th><th>出处</th></tr></thead><tbody>
-<tr><td>0.0013 / 0.0477 / 0.1600</td><td><strong>Laya</strong> 的翻转率（XNLI / Emotion / MASSIVE）</td><td>分母是<strong>重排副本</strong>：1500 / 3000 / 1500 个副本，对应 300 / 600 / 300 道题</td><td>kime <code>2026-09-30-gate/gate.md</code>、<code>report.md</code></td></tr>
-<tr><td>0.33% / 11.0% / 29.7%</td><td><strong>至少翻过一次的题</strong>的比例</td><td>分母是<strong>题</strong>，与上一行不同</td><td>kime <code>2026-09-30-gate/report.md</code></td></tr>
-<tr><td>3 / 6 / 20</td><td>上面三个数据集的选项数</td><td>XNLI 三分类型；Emotion 6 个情绪；MASSIVE 按 <code>N_OPTS=20</code> 抽</td><td>kime <code>tools/eval/build_suites.py</code></td></tr>
-<tr><td>4.9x</td><td>选项 2 → 32（16 倍）的耗时比</td><td>同一 state、同一问题、CPU 6 线程、三次取中位数</td><td><a href="../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测</a></td></tr>
+<tr><td>0.0013 / 0.0477 / 0.1600</td><td><strong>Laya</strong> 的翻转率（XNLI / Emotion / MASSIVE）</td><td>分母是<strong>重排副本</strong>：1500 / 3000 / 1500 个副本，对应 300 / 600 / 300 道题</td><td>本项目 P0 实测</td></tr>
+<tr><td>0.33% / 11.0% / 29.7%</td><td><strong>至少翻过一次的题</strong>的比例</td><td>分母是<strong>题</strong>，与上一行不同</td><td>同上</td></tr>
+<tr><td>3 / 6 / 20</td><td>上面三个数据集的选项数</td><td>XNLI 三分类型；Emotion 6 个情绪；MASSIVE 抽 20 个</td><td>同上</td></tr>
+<tr><td>4.9x</td><td>选项 2 → 32（16 倍）的耗时比</td><td>同一 state、同一问题、CPU 6 线程、三次取中位数</td><td><a href="../../experiments/2026-11-02-p0-laya-baseline/index.html">P0 实测</a></td></tr>
 <tr><td>7.3x</td><td>问题 1 → 10 的耗时比</td><td>同一 state、同样的 choice 问题、CPU 6 线程、三次取中位数；<strong>请求粒度原始记录未写明</strong></td><td>同上</td></tr>
-<tr><td>0.593–0.623</td><td><strong>Laya</strong> 一次跑 vs 各块大小的一致率</td><td>300 题 banking77，每题 64 选项，M4 Metal；混有 token 预算差异</td><td>kime <code>2026-09-30-chunking/banking77.md</code></td></tr>
+<tr><td>0.593–0.623</td><td><strong>Laya</strong> 一次跑 vs 各块大小的一致率</td><td>300 题 banking77，每题 64 选项，M4 Metal；混有 token 预算差异</td><td><a href="../../experiments/2026-11-02-p0-laya-baseline/index.html">P0 实测</a></td></tr>
 <tr><td>0.790</td><td><strong>Laya</strong> 块 8/16/32 互相之间的一致率</td><td>同上；<strong>同样混有 token 预算差异</strong></td><td>同上</td></tr>
 <tr><td>0.523 → 0.607–0.623</td><td><strong>Laya</strong> 的 banking77 Top-1</td><td>同上；每选项 token 数 4（一次跑）→ 5.5~22（分块）</td><td>同上</td></tr>
 </tbody></table>
@@ -427,7 +427,7 @@
 <p>三处容易读错的地方：</p>
 <ul>
 <li><strong>翻转率的分母是副本，不是题。</strong> 「16% 的题换了答案」是错的——MASSIVE 是 16% 的<strong>重排副本</strong>换了答案，受影响的是 <strong>29.7% 的题</strong>。这两个数差近一倍。</li>
-<li><strong>chunking 报告测的是 Laya，不是 kime-v1。</strong> 报告结尾写明它是给 kime-v1 设的门槛，这一轮跑的是基线。</li>
+<li><strong>那组分块数字测的是 Laya，不是拆分编码器。</strong> 它反映的是 Laya 的分块行为，不能直接套到拆分方案上。</li>
 <li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> P0 记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya compat 是 <code>One sequence per question</code>（<code>spec/06-input.md</code>），两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
 </ul>
 <p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
@@ -437,7 +437,7 @@
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../../docs/plan.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -451,7 +451,7 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../../docs/plan.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

@@ -240,7 +240,7 @@
 </div>
 <p>其他两个选项走完全一样的五步，只是前向那一步是同时发生的——它们在一个张量里。</p>
 <h2 id="每个节点要注意什么"><a class="header" href="#每个节点要注意什么">每个节点要注意什么</a></h2>
-<p><strong>JSON 请求。</strong> <code>POST /v1/systemone</code>。<code>kime-core::request::parse</code> 用 <code>Limits::LAYA</code> 校验：最多 256 个问题、255 个选项、32 个等级。<code>kime.policy</code>、<code>kime.permutations</code>、<code>kime.shortlist</code> 这些扩展也在这里解析。</p>
+<p><strong>JSON 请求。</strong> <code>POST /v1/systemone</code>。解析时做一轮校验：最多 256 个问题、255 个选项、32 个等级。代价矩阵、排列平均、短名单这类可选扩展也在这里解析。</p>
 <p><strong>渲染。</strong> 这是两个项目差别最大的地方。DUAN 的顺序是 <code>[state] [问题 1] [选项 1.1] ... [问题 2] [选项 2.1] ...</code>，每段是「选项文本 + 结尾标记」，位置从 <code>n + len(问题块)</code> 重新开始。</p>
 <p>Laya 的渲染长这样（<code>spec/06-input.md</code>）：</p>
 <pre><code class="language-text">[CLS] tok("&lt;type&gt; question: &lt;instructions&gt;")[:budget] [SEP]
@@ -250,11 +250,11 @@ tok(state)[:room] [SEP]
 <p>选项上限 48 token，如果总长超过 <code>head_max_len</code> 就每个压到 <code>max(4, ...)</code>。state 从尾部截断，而且是<strong>静默</strong>的——这是个已知缺陷（Laya #174）。</p>
 <p>两边都要防一件事：用户文本里如果字面写着 <code>[MASK]</code> 或 <code>&lt;mask&gt;</code>，渲染时替换成空格，否则用户可以伪造标记。DUAN 的标记用的是词表外的 id，分词器压根产生不了，所以理论上不需要这层防护，但保留着没坏处。</p>
 <p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是 P4 要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
-<p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。kime-v1 靠拆成两个塔解决，DUAN 靠 Qwen3 的因果结构白得。</p>
+<p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。DUAN 靠 Qwen3 的因果结构白得。</p>
 <p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。<code>spec/03-api.md</code> 里那个示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
 <p><strong>决策头。</strong> Laya 是 <code>LayerNorm(d) → Linear(d,d) → GELU → Linear(d,1)</code>，每个选项出一个 logit。DUAN 用同样形态，但多一个按题型的偏置，作用在每个选项段结尾标记的隐藏状态上。</p>
 <p>score 题还要额外加序数嵌入，因为位置重计之后模型看不出档位顺序（<a href="encoder-decoder.html">encoder-decoder.md</a> 第 7.2 节）。</p>
-<p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找，回退顺序见 kime <code>spec/04-semantics.md</code>。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
+<p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找：先找完全匹配，逐级回退到更粗的桶。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
 <p>这里修掉了 Laya 的一个不一致：它拟合时用 <code>[0.1, 10]</code>，运行时用 <code>[0.5, 5]</code>。拟合和运行必须是同一个范围，否则拟合出来的温度在运行时会被再次裁剪掉。</p>
 <p>顺带一个观察：<code>laya-multilingual</code> 这个快照的 checkpoint 里 <code>temperature = [1.0, 1.0, 1.0]</code>、<code>temperature_by_options = {}</code>——<strong>它根本没带拟合过的温度</strong>。</p>
 <p><strong>类型化答案。</strong> choice 给 <code>choice</code> + <code>probabilities</code> + <code>confidence</code>；score 给 <code>score = Σ i·p_i</code>、<code>legend</code>、<code>probabilities</code>；noul 给 <code>noul = p[1]</code>。三者都带 <code>action.act_probability</code>。</p>
@@ -272,9 +272,9 @@ tok(state)[:room] [SEP]
 <li><strong>对空格和大小写敏感。</strong> <code>billing</code>（1.6e-8）和 <code> billing</code>（6.1e-7）差 38 倍。</li>
 <li><strong>作答前缀要和模型实际的输出格式一致。</strong> 否则单 token 的标签（比如 <code>other</code>）会占便宜。</li>
 </ol>
-<p>所以 kime 的原生模型和 DUAN 都用学出来的标记加 scorer，不用这套读法。</p>
+<p>所以 DUAN 用学出来的标记加打分器，不用这套读法。</p>
 <h2 id="改一个东西看会发生什么"><a class="header" href="#改一个东西看会发生什么">改一个东西，看会发生什么</a></h2>
-<p>U5 要复现的就是这张表。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见 <a href="../../experiments/2026-11-02-p0-kime-baseline/index.html">P0 实测记录</a>。</p>
+<p>U5 要复现的就是这张表。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见 <a href="../../experiments/2026-11-02-p0-laya-baseline/index.html">P0 实测记录</a>。</p>
 <div class="table-wrapper"><table><thead><tr><th>改动</th><th>Laya 的变化</th><th>Qwen3 零样本</th><th>为什么反直觉</th></tr></thead><tbody>
 <tr><td>选项顺序反转</td><td><code>billing</code> 1.0 → 0.998；同一请求里的 <code>urgency</code>、<code>churn</code> 完全不变</td><td>待测</td><td>只有被改的那个问题变，说明问题之间独立；顺序影响只在问题内部</td></tr>
 <tr><td>加一个明显错误的选项 <code>legal</code></td><td><code>billing</code> 仍是 1.0</td><td>待测</td><td>概率已经饱和，softmax 没有余量可分，候选集效应被掩盖了。要看不饱和的题才看得出来</td></tr>
@@ -300,7 +300,7 @@ tok(state)[:room] [SEP]
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../../docs/design.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -314,7 +314,7 @@ tok(state)[:room] [SEP]
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../../experiments/2026-11-02-p0-kime-baseline/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../../docs/design.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

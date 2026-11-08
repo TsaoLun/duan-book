@@ -191,13 +191,13 @@
 <tr><td>AUROC</td><td>ROC 曲线下面积</td><td>置信度区分对错答案的能力</td></tr>
 <tr><td>encoder</td><td>编码器</td><td>双向注意力结构，位置表示依赖整段序列；Laya 用的 ModernBERT 属于这类</td></tr>
 <tr><td>decoder</td><td>解码器</td><td>因果注意力结构，位置表示只依赖前缀，可做前缀缓存；Qwen3 属于这类</td></tr>
-<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力；kime 的 gate 报告把它记作 AUROC 0.30，但 0.30 低于随机水平，说明这个头的残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
-<tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，kime 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
+<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力。实测把它记作 AUROC 0.30——低于随机水平，说明残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
+<tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，DUAN 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
 <tr><td>causal attention</td><td>因果注意力</td><td>每个位置只能看到它之前的位置</td></tr>
 <tr><td>bidirectional attention</td><td>双向注意力</td><td>每个位置能看到整段序列，任何 token 的加入都会改写前面的表示</td></tr>
 <tr><td>pointwise scoring</td><td>逐项打分</td><td>每个选项的分数只依赖它自己，对选项排列不变。标准编码器实现要 $k$ 次前向；解码器用分段布局可以一次前向。注意「逐项」说的是分数依赖什么，不是前向次数。它不影响 argmax：softmax 单调，$\arg\max_k z_k$ 与归一化无关；丢掉的是候选集上下文，不是选择能力</td></tr>
 <tr><td>listwise scoring</td><td>列表打分</td><td>分数依赖选项排列与候选集组成，因为选项在同一序列里互相可见</td></tr>
-<tr><td>layout</td><td>排法</td><td>同一次前向里选项怎么摆。两个常见取值：顺序拼接（互相可见）、分段布局（互不可见且位置重计）。但排法不止两种：kime-v1 互不可见却共用标记，标准编码器则根本不把选项放进同一序列</td></tr>
+<tr><td>layout</td><td>排法</td><td>同一次前向里选项怎么摆。两个常见取值：顺序拼接（互相可见）、分段布局（互不可见且位置重计）。但排法不止两种：拆分编码器互不可见却共用标记，标准编码器则根本不把选项放进同一序列</td></tr>
 <tr><td>forward count</td><td>前向次数</td><td>算了几次模型。它是排法的工程后果，不是结构的性质，也不决定打分方式</td></tr>
 <tr><td>segment mask</td><td>分段掩码</td><td>让几段文本共用一个前缀、彼此不可见的注意力掩码；本项目用它把各个选项段放进同一次前向</td></tr>
 <tr><td>position restart</td><td>位置重计</td><td>每个选项段的 RoPE 位置都从前缀长度开始，模型分不出选项的先后</td></tr>
@@ -213,16 +213,16 @@
 <tr><td>prefix caching</td><td>前缀缓存</td><td>KV 缓存的一种用法：同一个前缀（例如 state）只算一次，多个后缀共用；P8 的收益来源</td></tr>
 <tr><td>order flip rate</td><td>选项翻转率</td><td>调换选项顺序后答案改变的比例</td></tr>
 <tr><td>permutation invariance</td><td>置换不变性</td><td>打乱输入顺序后输出不变的性质；pointwise 打分满足，listwise 不满足</td></tr>
-<tr><td>chunk consistency</td><td>分块一致性</td><td>同一道题在不同分块方式下给出的答案一致率。有两种口径，<strong>不能混</strong>：①「一次前向 vs 各分块」，②「各分块之间」。kime 的 chunking 报告（测的是 Laya）实测：①0.59–0.62（混有 token 预算差异），②0.790</td></tr>
-<tr><td>contamination</td><td>测试集泄漏</td><td>训练数据里出现了和评测集近似的文本；用 MinHash + Jaccard 0.5 检查，<code>kime contam</code> 实现</td></tr>
-<tr><td>distillation</td><td>蒸馏</td><td>让小模型学大模型的输出分布；kime-v1 用全交叉编码器教师，DUAN 不用（design.md 第 6 节）</td></tr>
+<tr><td>chunk consistency</td><td>分块一致性</td><td>同一道题在不同分块方式下给出的答案一致率。有两种口径，<strong>不能混</strong>：①「一次前向 vs 各分块」，②「各分块之间」。在一份对 Laya 的实测里：①0.593–0.623（混有 token 预算差异），②0.790</td></tr>
+<tr><td>contamination</td><td>测试集泄漏</td><td>训练数据里出现了和评测集近似的文本；用 MinHash + Jaccard 0.5 检查</td></tr>
+<tr><td>distillation</td><td>蒸馏</td><td>让小模型学大模型的输出分布；DUAN 不用（design.md 第 6 节）</td></tr>
 </tbody></table>
 </div>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../../tools/data/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../../experiments/2026-11-04-p0-club-counterfactual/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -233,7 +233,7 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../../tools/data/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../../experiments/2026-11-04-p0-club-counterfactual/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
