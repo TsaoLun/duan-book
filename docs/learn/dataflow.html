@@ -265,7 +265,7 @@ tok(state)[:room] [SEP]
 </ul>
 <p>报告里两者都被叫作「置信度」。取数之前先确认拿的是哪个。</p>
 <h2 id="零样本的四个坑"><a class="header" href="#零样本的四个坑">零样本的四个坑</a></h2>
-<p><code>tools/ref/qwen_zero_probe.py</code> 读标签 token 的概率当分数，机制成立但很脆：</p>
+<p>不用决策头，直接读标签 token 的概率当分数，机制成立但很脆。这段逻辑见 <a href="https://github.com/TsaoLun/duan/blob/main/tools/ref/qwen_zero_probe.py"><code>tools/ref/qwen_zero_probe.py</code></a>：</p>
 <ol>
 <li><strong>标签不能出现在 prompt 里。</strong> 否则模型是在复制标签，不是在选。</li>
 <li><strong>候选标签的首 token 必须互不相同。</strong> <code>option 1..4</code> 的首 token 都是 <code>option</code>，归一化之后必然是四个 0.25。这不是「模型觉得四个一样」，是读法失效。</li>

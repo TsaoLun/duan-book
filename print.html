@@ -326,7 +326,7 @@
 <p>模型怎么知道谁排在谁后面？靠 RoPE——旋转位置编码，把「这是第几个 token」编码进注意力的分数里。这是 Qwen3 这类模型唯一的位置信号。</p>
 <p>如果三段的 RoPE 位置还接着往下排（0,1,2,3…），模型仍然能算出「<code>o₂</code> 排在 <code>o₁</code> 后面」，那掩码就白改了。所以每段的位置都从前缀长度重新开始，三段用的是同一组位置。</p>
 <p>掩码和位置一起改，才真的等价于「单独跑」。</p>
-<p><strong>这两件事在代码里各只有一行。</strong> 仓库里有一个测试专门验证这个等价性：</p>
+<p><strong>这两件事在代码里各只有一行。</strong> <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>tests/forward.rs</code></a> 里有一个测试专门验证这个等价性：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>for (s, seg) in segments.iter().enumerate() {
@@ -356,7 +356,7 @@ let visible = |q: usize, k: usize| k &lt; p || (owner[k - p] == owner[q] &amp;&a
 }
 <span class="boring">}</span></code></pre></pre>
 <p>为什么是 1e-4 而不是逐位相同：批形状变了，矩阵乘的归约顺序就变，浮点结果不会完全一致。语义等价，数值上只到浮点误差。</p>
-<p>这两个测试在 <code>crates/duan-qwen/tests/forward.rs</code>，分别叫 <code>segments_match_separate_forwards</code> 和 <code>swapping_segments_swaps_outputs</code>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
+<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L126"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L146"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
 <p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
 <p>排除它的理由有三个，都不是「做不到」：</p>
 <ol>
@@ -589,7 +589,7 @@ tok(state)[:room] [SEP]
 </ul>
 <p>报告里两者都被叫作「置信度」。取数之前先确认拿的是哪个。</p>
 <h2 id="零样本的四个坑"><a class="header" href="#零样本的四个坑">零样本的四个坑</a></h2>
-<p><code>tools/ref/qwen_zero_probe.py</code> 读标签 token 的概率当分数，机制成立但很脆：</p>
+<p>不用决策头，直接读标签 token 的概率当分数，机制成立但很脆。这段逻辑见 <a href="https://github.com/TsaoLun/duan/blob/main/tools/ref/qwen_zero_probe.py"><code>tools/ref/qwen_zero_probe.py</code></a>：</p>
 <ol>
 <li><strong>标签不能出现在 prompt 里。</strong> 否则模型是在复制标签，不是在选。</li>
 <li><strong>候选标签的首 token 必须互不相同。</strong> <code>option 1..4</code> 的首 token 都是 <code>option</code>，归一化之后必然是四个 0.25。这不是「模型觉得四个一样」，是读法失效。</li>
@@ -777,7 +777,7 @@ tok(state)[:room] [SEP]
 <li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
 <li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
 </ul>
-<p>两者的签名长这样。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
+<p>两者的签名长这样（见 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/src/model.rs"><code>crates/duan-qwen/src/model.rs</code></a>）。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Qwen {
@@ -801,7 +801,7 @@ tok(state)[:room] [SEP]
 }
 <span class="boring">}</span></code></pre></pre>
 <p><code>forward</code> 只是 <code>forward_with</code> 的一个特例：它按 <code>0..seq</code> 生成位置，按「看不见后面」生成 bias。写 P2 时可以先实现 <code>forward_with</code>，让 <code>forward</code> 去调它。</p>
-<p>缓存本身很小，只有 K 和 V：</p>
+<p>缓存本身很小，只有 K 和 V（见 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/src/attention.rs"><code>crates/duan-qwen/src/attention.rs</code></a>）：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>pub struct KvCache {
@@ -1005,7 +1005,7 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 </ol>
 <p>这四个陷阱说明，读标签 token 的做法泛化不到任意标签集。DUAN 用学出来的结尾标记加决策头，原因就在这里（design.md 第 3、5 节）。</p>
 <h3 id="intel-mac-的-python-环境"><a class="header" href="#intel-mac-的-python-环境">Intel Mac 的 Python 环境</a></h3>
-<p>PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12、numpy &lt; 2，transformers 也要停在 4.57 以下。安装命令见仓库里的参考实现说明。</p>
+<p>PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12、numpy &lt; 2，transformers 也要停在 4.57 以下。安装命令见 <a href="https://github.com/TsaoLun/duan/blob/main/tools/ref/README.md"><code>tools/ref/README.md</code></a>。</p>
 <h2 id="分析"><a class="header" href="#分析">分析</a></h2>
 <ul>
 <li>三个缺陷各有对应的解法：选项排列由<strong>分段布局</strong>（design.md 第 3.4 节）解决，<code>act_probability</code> 由<strong>置信度头</strong>解决，标签依赖由<strong>中性标签增强</strong>解决。</li>
@@ -1127,7 +1127,7 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <tr><td>AUROC</td><td>ROC 曲线下面积</td><td>置信度区分对错答案的能力</td></tr>
 <tr><td>encoder</td><td>编码器</td><td>双向注意力结构，位置表示依赖整段序列；Laya 用的 ModernBERT 属于这类</td></tr>
 <tr><td>decoder</td><td>解码器</td><td>因果注意力结构，位置表示只依赖前缀，可做前缀缓存；Qwen3 属于这类</td></tr>
-<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力。实测把它记作 AUROC 0.30——低于随机水平，说明残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
+<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（它的实现里这个输出被乘了 <code>0.0</code>）。输出几乎恒为 1.0，因此它没有排序能力。实测把它记作 AUROC 0.30——低于随机水平，说明残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
 <tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，DUAN 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
 <tr><td>causal attention</td><td>因果注意力</td><td>每个位置只能看到它之前的位置</td></tr>
 <tr><td>bidirectional attention</td><td>双向注意力</td><td>每个位置能看到整段序列，任何 token 的加入都会改写前面的表示</td></tr>

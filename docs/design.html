@@ -336,7 +336,7 @@
 <li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
 <li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
 </ul>
-<p>两者的签名长这样。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
+<p>两者的签名长这样（见 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/src/model.rs"><code>crates/duan-qwen/src/model.rs</code></a>）。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>impl Qwen {
@@ -360,7 +360,7 @@
 }
 <span class="boring">}</span></code></pre></pre>
 <p><code>forward</code> 只是 <code>forward_with</code> 的一个特例：它按 <code>0..seq</code> 生成位置，按「看不见后面」生成 bias。写 P2 时可以先实现 <code>forward_with</code>，让 <code>forward</code> 去调它。</p>
-<p>缓存本身很小，只有 K 和 V：</p>
+<p>缓存本身很小，只有 K 和 V（见 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/src/attention.rs"><code>crates/duan-qwen/src/attention.rs</code></a>）：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>pub struct KvCache {

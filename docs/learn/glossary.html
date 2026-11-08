@@ -191,7 +191,7 @@
 <tr><td>AUROC</td><td>ROC 曲线下面积</td><td>置信度区分对错答案的能力</td></tr>
 <tr><td>encoder</td><td>编码器</td><td>双向注意力结构，位置表示依赖整段序列；Laya 用的 ModernBERT 属于这类</td></tr>
 <tr><td>decoder</td><td>解码器</td><td>因果注意力结构，位置表示只依赖前缀，可做前缀缓存；Qwen3 属于这类</td></tr>
-<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（代码里 <code>0.0 * act.sum()</code>）。输出几乎恒为 1.0，因此它没有排序能力。实测把它记作 AUROC 0.30——低于随机水平，说明残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
+<tr><td>act head</td><td>行动头</td><td>Laya 里预测答案是否可采信的辅助头，从未训练过（它的实现里这个输出被乘了 <code>0.0</code>）。输出几乎恒为 1.0，因此它没有排序能力。实测把它记作 AUROC 0.30——低于随机水平，说明残余变化是<strong>反向</strong>排序而非无效排序。两种读法都指向同一结论：这个输出不能用</td></tr>
 <tr><td>act_probability</td><td>行动概率</td><td>响应里表示「这次答案可采信」的概率；Laya 的值不可用，DUAN 用校准后的 max(p) 或训练好的置信度头替代</td></tr>
 <tr><td>causal attention</td><td>因果注意力</td><td>每个位置只能看到它之前的位置</td></tr>
 <tr><td>bidirectional attention</td><td>双向注意力</td><td>每个位置能看到整段序列，任何 token 的加入都会改写前面的表示</td></tr>

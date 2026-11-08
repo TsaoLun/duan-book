@@ -291,7 +291,7 @@
 <p>模型怎么知道谁排在谁后面？靠 RoPE——旋转位置编码，把「这是第几个 token」编码进注意力的分数里。这是 Qwen3 这类模型唯一的位置信号。</p>
 <p>如果三段的 RoPE 位置还接着往下排（0,1,2,3…），模型仍然能算出「<code>o₂</code> 排在 <code>o₁</code> 后面」，那掩码就白改了。所以每段的位置都从前缀长度重新开始，三段用的是同一组位置。</p>
 <p>掩码和位置一起改，才真的等价于「单独跑」。</p>
-<p><strong>这两件事在代码里各只有一行。</strong> 仓库里有一个测试专门验证这个等价性：</p>
+<p><strong>这两件事在代码里各只有一行。</strong> <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>tests/forward.rs</code></a> 里有一个测试专门验证这个等价性：</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>for (s, seg) in segments.iter().enumerate() {
@@ -321,7 +321,7 @@ let visible = |q: usize, k: usize| k &lt; p || (owner[k - p] == owner[q] &amp;&a
 }
 <span class="boring">}</span></code></pre></pre>
 <p>为什么是 1e-4 而不是逐位相同：批形状变了，矩阵乘的归约顺序就变，浮点结果不会完全一致。语义等价，数值上只到浮点误差。</p>
-<p>这两个测试在 <code>crates/duan-qwen/tests/forward.rs</code>，分别叫 <code>segments_match_separate_forwards</code> 和 <code>swapping_segments_swaps_outputs</code>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
+<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L126"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L146"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
 <p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
 <p>排除它的理由有三个，都不是「做不到」：</p>
 <ol>
