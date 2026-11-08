@@ -356,7 +356,7 @@ let visible = |q: usize, k: usize| k &lt; p || (owner[k - p] == owner[q] &amp;&a
 }
 <span class="boring">}</span></code></pre></pre>
 <p>为什么是 1e-4 而不是逐位相同：批形状变了，矩阵乘的归约顺序就变，浮点结果不会完全一致。语义等价，数值上只到浮点误差。</p>
-<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L126"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L146"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
+<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L141"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L163"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
 <p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
 <p>排除它的理由有三个，都不是「做不到」：</p>
 <ol>
@@ -897,34 +897,34 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <p>这仍然有用：想知道某条性质到底是什么意思，读那个测试比读文字准。测试里没有模糊地带。</p>
 <h3 id="布局的三条性质第-34-节"><a class="header" href="#布局的三条性质第-34-节">布局的三条性质（第 3.4 节）</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>结论</th><th>验证它的测试</th></tr></thead><tbody>
-<tr><td>交换两个选项只交换输出</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L146"><code>swapping_segments_swaps_outputs</code></a></td></tr>
-<tr><td>分段前向等于逐段单独前向</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L126"><code>segments_match_separate_forwards</code></a></td></tr>
-<tr><td>因果性：改动后面的 token 不影响前面</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L17"><code>later_tokens_do_not_change_earlier_outputs</code></a></td></tr>
-<tr><td>右填充不影响真实 token</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L29"><code>right_padding_does_not_change_real_tokens</code></a></td></tr>
+<tr><td>交换两个选项只交换输出</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L163"><code>swapping_segments_swaps_outputs</code></a></td></tr>
+<tr><td>分段前向等于逐段单独前向</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L141"><code>segments_match_separate_forwards</code></a></td></tr>
+<tr><td>因果性：改动后面的 token 不影响前面</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L21"><code>later_tokens_do_not_change_earlier_outputs</code></a></td></tr>
+<tr><td>右填充不影响真实 token</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L35"><code>right_padding_does_not_change_real_tokens</code></a></td></tr>
 </tbody></table>
 </div>
 <p>第二条和第三条放在一起看，就是「一次前向 + 逐项打分」的完整证明：分段之间互不可见（所以等于单独跑），段内是因果的（所以位置重计生效）。</p>
 <h3 id="缓存第-7-节"><a class="header" href="#缓存第-7-节">缓存（第 7 节）</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>结论</th><th>验证它的测试</th></tr></thead><tbody>
-<tr><td>KV 缓存增量前向等于整段前向</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L48"><code>kv_cache_matches_full_forward</code></a></td></tr>
+<tr><td>KV 缓存增量前向等于整段前向</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L58"><code>kv_cache_matches_full_forward</code></a></td></tr>
 </tbody></table>
 </div>
 <h3 id="组件第-42-节"><a class="header" href="#组件第-42-节">组件（第 4.2 节）</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>结论</th><th>验证它的测试</th></tr></thead><tbody>
-<tr><td>RMSNorm 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L15"><code>rms_norm_matches_hand_computation</code></a></td></tr>
-<tr><td>RoPE 符合 rotate-half 约定</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L44"><code>rope_matches_rotate_half_by_hand</code></a></td></tr>
-<tr><td>RoPE 在位置 0 是恒等变换</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L75"><code>rope_at_position_zero_is_identity</code></a></td></tr>
-<tr><td>RoPE 保持范数</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L85"><code>rope_preserves_norm</code></a></td></tr>
-<tr><td>注意力分数只取决于相对位置</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L96"><code>rope_scores_depend_only_on_relative_position</code></a></td></tr>
+<tr><td>RMSNorm 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L16"><code>rms_norm_matches_hand_computation</code></a></td></tr>
+<tr><td>RoPE 符合 rotate-half 约定</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L47"><code>rope_matches_rotate_half_by_hand</code></a></td></tr>
+<tr><td>RoPE 在位置 0 是恒等变换</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L80"><code>rope_at_position_zero_is_identity</code></a></td></tr>
+<tr><td>RoPE 保持范数</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L91"><code>rope_preserves_norm</code></a></td></tr>
+<tr><td>注意力分数只取决于相对位置</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/components.rs#L105"><code>rope_scores_depend_only_on_relative_position</code></a></td></tr>
 </tbody></table>
 </div>
 <h3 id="指标第-6-节"><a class="header" href="#指标第-6-节">指标（第 6 节）</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>结论</th><th>验证它的测试</th></tr></thead><tbody>
-<tr><td>NLL 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L104"><code>nll_matches_hand_computation</code></a></td></tr>
-<tr><td>Brier 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L111"><code>brier_matches_hand_computation</code></a></td></tr>
-<tr><td>完全校准的分箱 ECE 为 0</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L118"><code>ece_of_a_perfectly_calibrated_bin_is_zero</code></a></td></tr>
-<tr><td>并列时取第一个</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L93"><code>pred_takes_the_first_on_a_tie</code></a></td></tr>
-<tr><td>温度拟合能把过度自信的模型压回来</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/temperature.rs#L109"><code>fit_cools_an_overconfident_model</code></a></td></tr>
+<tr><td>NLL 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L107"><code>nll_matches_hand_computation</code></a></td></tr>
+<tr><td>Brier 与手算一致</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L115"><code>brier_matches_hand_computation</code></a></td></tr>
+<tr><td>完全校准的分箱 ECE 为 0</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L124"><code>ece_of_a_perfectly_calibrated_bin_is_zero</code></a></td></tr>
+<tr><td>并列时取第一个</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/metrics.rs#L95"><code>pred_takes_the_first_on_a_tie</code></a></td></tr>
+<tr><td>温度拟合能把过度自信的模型压回来</td><td><a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-calib/src/temperature.rs#L111"><code>fit_cools_an_overconfident_model</code></a></td></tr>
 </tbody></table>
 </div>
 <h3 id="和-transformers-对齐第-42-节"><a class="header" href="#和-transformers-对齐第-42-节">和 transformers 对齐（第 4.2 节）</a></h3>

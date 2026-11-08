@@ -321,7 +321,7 @@ let visible = |q: usize, k: usize| k &lt; p || (owner[k - p] == owner[q] &amp;&a
 }
 <span class="boring">}</span></code></pre></pre>
 <p>为什么是 1e-4 而不是逐位相同：批形状变了，矩阵乘的归约顺序就变，浮点结果不会完全一致。语义等价，数值上只到浮点误差。</p>
-<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L126"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L146"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
+<p>这两个测试在 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs"><code>crates/duan-qwen/tests/forward.rs</code></a>，分别叫 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L141"><code>segments_match_separate_forwards</code></a> 和 <a href="https://github.com/TsaoLun/duan/blob/main/crates/duan-qwen/tests/forward.rs#L163"><code>swapping_segments_swaps_outputs</code></a>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
 <p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
 <p>排除它的理由有三个，都不是「做不到」：</p>
 <ol>
