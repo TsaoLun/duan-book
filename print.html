@@ -326,6 +326,37 @@
 <p>模型怎么知道谁排在谁后面？靠 RoPE——旋转位置编码，把「这是第几个 token」编码进注意力的分数里。这是 Qwen3 这类模型唯一的位置信号。</p>
 <p>如果三段的 RoPE 位置还接着往下排（0,1,2,3…），模型仍然能算出「<code>o₂</code> 排在 <code>o₁</code> 后面」，那掩码就白改了。所以每段的位置都从前缀长度重新开始，三段用的是同一组位置。</p>
 <p>掩码和位置一起改，才真的等价于「单独跑」。</p>
+<p><strong>这两件事在代码里各只有一行。</strong> 仓库里有一个测试专门验证这个等价性：</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>for (s, seg) in segments.iter().enumerate() {
+    for (i, t) in seg.iter().enumerate() {
+        tokens.push(*t);
+        pos.push((p + i) as i64);      // ← 位置重计：每段都从 p 开始
+        owner.push(s);                 // ← 这个 token 属于第几段
+    }
+}
+let visible = |q: usize, k: usize| k &lt; p || (owner[k - p] == owner[q] &amp;&amp; k - p &lt;= q);
+//                                   ↑看前缀  ↑只看本段      ↑段内因果
+<span class="boring">}</span></code></pre></pre>
+<p><code>visible</code> 那行的三个条件是整件事的全部：</p>
+<ul>
+<li><code>k &lt; p</code>：所有段都能看见前缀。</li>
+<li><code>owner[k - p] == owner[q]</code>：段只看见自己那一段。</li>
+<li><code>k - p &lt;= q</code>：段内是因果的，不看自己后面。</li>
+</ul>
+<p>位置在另一行：<code>p + i</code> 而不是全局递增的下标。<strong>这两处合起来，才让「一次前向」等于「三次独立前向」。</strong> 少任何一个都不行——只改掩码不改位置，模型仍能算出谁在前；只改位置不改掩码，段与段还是会互相看见。</p>
+<p>对应的断言是：把三段拼在一起跑，和分别单独跑，逐元素差小于 1e-4。</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>for (seg, got) in segments.iter().zip(together) {
+    let mut caches = prefix.clone();
+    let alone = model.forward(ids(&amp;[seg], &amp;device), /* … */);
+    assert!(max_diff(got, alone) &lt; 1e-4, "segment {seg:?}");
+}
+<span class="boring">}</span></code></pre></pre>
+<p>为什么是 1e-4 而不是逐位相同：批形状变了，矩阵乘的归约顺序就变，浮点结果不会完全一致。语义等价，数值上只到浮点误差。</p>
+<p>这两个测试在 <code>crates/duan-qwen/tests/forward.rs</code>，分别叫 <code>segments_match_separate_forwards</code> 和 <code>swapping_segments_swaps_outputs</code>。后者验证的正是第 8 节说的「交换两个选项只交换两个 logit」——它断言 <code>ab[0] == ba[1]</code> 且 <code>ab[1] == ba[0]</code>。</p>
 <p><strong>那编码器为什么不能也这么办？</strong> 能，原理上完全可以——给它加同一套分段掩码和位置重算，得到的计算图和一摸一样的因果模型没有区别。</p>
 <p>排除它的理由有三个，都不是「做不到」：</p>
 <ol>
@@ -466,7 +497,7 @@
 <li><strong>7.3x 那次实验的请求粒度，原始记录没写明。</strong> 实测记录只说是「同一个 state，同样的 choice 问题，三次运行取中位数」，没交代 10 个问题是塞在一个请求里还是发了 10 次。这一点决定这个数字证明的是什么。不过 Laya 是每个问题一条序列，两种情况下 state 都要逐问题重算，所以结论方向不受影响；但引用时不要自己加「同一请求」这个条件。</li>
 </ul>
 <p><code>design.md</code> 里的「每块 32 个选项」「最多 255 个选项」「GPU 个位数毫秒」「约 10 GB」都是设计目标或预算假设，不是实测值，别当数据引用。</p>
-<p>这个项目的来龙去脉见 README.md，一次请求的数据流见 <a href="docs/learn/dataflow.html">dataflow.md</a>。</p>
+<p>读完这一章，往下走有两条路：想知道这个模型整体长什么样，读<a href="docs/learn/../design.html">设计规格</a>；想知道一次请求从 JSON 到答案经过哪些节点，读<a href="docs/learn/dataflow.html">一次请求的数据流</a>。</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="一次请求的数据流"><a class="header" href="#一次请求的数据流">一次请求的数据流</a></h1>
 <p>这一章跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
 <p>我们跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>DUAN 换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
@@ -746,6 +777,39 @@ tok(state)[:room] [SEP]
 <li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
 <li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
 </ul>
+<p>两者的签名长这样。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl Qwen {
+    /// 普通因果文本。`mask` 是 1 表示真实 token、0 表示 padding，
+    /// 位置从 cache 的长度继续。
+    pub fn forward(
+        &amp;self,
+        ids: Tensor&lt;2, Int&gt;,        // [batch, seq]
+        mask: Tensor&lt;2, Int&gt;,       // [batch, seq]
+        caches: Option&lt;&amp;mut [KvCache]&gt;,
+    ) -&gt; Tensor&lt;3&gt;;                 // [batch, seq, hidden]
+
+    /// 由调用方给出位置和偏置。
+    pub fn forward_with(
+        &amp;self,
+        ids: Tensor&lt;2, Int&gt;,
+        positions: Tensor&lt;2, Int&gt;,   // 每段的 RoPE 位置，可重复
+        bias: Tensor&lt;4&gt;,             // [batch, 1, seq, cached + seq]，可见处 0，不可见处大负数
+        caches: Option&lt;&amp;mut [KvCache]&gt;,
+    ) -&gt; Tensor&lt;3&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>forward</code> 只是 <code>forward_with</code> 的一个特例：它按 <code>0..seq</code> 生成位置，按「看不见后面」生成 bias。写 P2 时可以先实现 <code>forward_with</code>，让 <code>forward</code> 去调它。</p>
+<p>缓存本身很小，只有 K 和 V：</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct KvCache {
+    pub k: Option&lt;Tensor&lt;4&gt;&gt;,   // [batch, kv_heads, len, head_dim]
+    pub v: Option&lt;Tensor&lt;4&gt;&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>KvCache::len()</code> 返回已缓存的长度，它有两个用途，<strong>不要混</strong>：一是新 token 在 <code>bias</code> 里的列偏移，二是 <code>forward</code> 里下一个位置的起点。在分段布局下这两者不同——位置要从前缀长度重新开始（第 3.3 节）。</p>
 <p>权重由 <code>duan_qwen::load</code> 从 HF 的 safetensors 加载：</p>
 <ul>
 <li>BF16 转成 FP32；</li>

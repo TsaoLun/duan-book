@@ -336,6 +336,39 @@
 <li><code>Qwen::forward(ids, mask, caches)</code> 处理普通的因果文本，用来和 transformers 对齐。</li>
 <li><code>Qwen::forward_with(ids, positions, bias, caches)</code> 由调用方给出位置和偏置，第 3 节的布局就靠它实现。</li>
 </ul>
+<p>两者的签名长这样。注意 <code>bias</code> 是四维的注意力偏置，第 3 节那套可见范围全部由它表达：</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl Qwen {
+    /// 普通因果文本。`mask` 是 1 表示真实 token、0 表示 padding，
+    /// 位置从 cache 的长度继续。
+    pub fn forward(
+        &amp;self,
+        ids: Tensor&lt;2, Int&gt;,        // [batch, seq]
+        mask: Tensor&lt;2, Int&gt;,       // [batch, seq]
+        caches: Option&lt;&amp;mut [KvCache]&gt;,
+    ) -&gt; Tensor&lt;3&gt;;                 // [batch, seq, hidden]
+
+    /// 由调用方给出位置和偏置。
+    pub fn forward_with(
+        &amp;self,
+        ids: Tensor&lt;2, Int&gt;,
+        positions: Tensor&lt;2, Int&gt;,   // 每段的 RoPE 位置，可重复
+        bias: Tensor&lt;4&gt;,             // [batch, 1, seq, cached + seq]，可见处 0，不可见处大负数
+        caches: Option&lt;&amp;mut [KvCache]&gt;,
+    ) -&gt; Tensor&lt;3&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>forward</code> 只是 <code>forward_with</code> 的一个特例：它按 <code>0..seq</code> 生成位置，按「看不见后面」生成 bias。写 P2 时可以先实现 <code>forward_with</code>，让 <code>forward</code> 去调它。</p>
+<p>缓存本身很小，只有 K 和 V：</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct KvCache {
+    pub k: Option&lt;Tensor&lt;4&gt;&gt;,   // [batch, kv_heads, len, head_dim]
+    pub v: Option&lt;Tensor&lt;4&gt;&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p><code>KvCache::len()</code> 返回已缓存的长度，它有两个用途，<strong>不要混</strong>：一是新 token 在 <code>bias</code> 里的列偏移，二是 <code>forward</code> 里下一个位置的起点。在分段布局下这两者不同——位置要从前缀长度重新开始（第 3.3 节）。</p>
 <p>权重由 <code>duan_qwen::load</code> 从 HF 的 safetensors 加载：</p>
 <ul>
 <li>BF16 转成 FP32；</li>
