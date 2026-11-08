@@ -176,7 +176,6 @@
                     <main>
                         <h1 id="laya-的缺陷实测"><a class="header" href="#laya-的缺陷实测">Laya 的缺陷实测</a></h1>
 <ul>
-<li><strong>阶段：</strong> P0</li>
 <li><strong>问题：</strong> 把 Laya 完整跑一遍，看看它的三个已知缺陷能不能亲眼看到，并留下后面阶段能直接用的基线数字。</li>
 <li><strong>结论：</strong>
 <ul>
@@ -254,7 +253,7 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 </div>
 <p>这两个表要一起读才有意义：</p>
 <ul>
-<li><strong>问题数上去，耗时近似线性增长。</strong> 7.3 倍几乎等于 10 倍问题数，说明 state 每个问题都重算了一遍，完全没有复用。P8 的完成标准就拿这条曲线作对照。</li>
+<li><strong>问题数上去，耗时近似线性增长。</strong> 7.3 倍几乎等于 10 倍问题数，说明 state 每个问题都重算了一遍，完全没有复用。「同一 state 上问 10 个问题」正是这个项目的目标场景，这条曲线就是对照基线。</li>
 <li><strong>选项数上去，耗时只是亚线性增长。</strong> 16 倍选项只有 4.9 倍耗时——因为选项变多只是序列变长，前向次数没变。</li>
 </ul>
 <p>合起来是一句反直觉的话：<strong>Laya 省了前向次数，赔了 state 复用。</strong> 只看其中一个数字，会得出完全相反的印象。</p>
@@ -267,8 +266,8 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <h3 id="评测工具和它自己的文档有出入"><a class="header" href="#评测工具和它自己的文档有出入">评测工具和它自己的文档有出入</a></h3>
 <p>这两条影响的是工具，不是模型，记下来免得后面踩：</p>
 <ul>
-<li><strong>响应里没有 <code>cache</code> 字段。</strong> 规格的示例里有 <code>"cache": {"state": "hit", "answers": "miss"}</code>，但实测这一路不给这个字段。所以 P8 在 Laya 这一侧没有现成对照可读，要自己测。</li>
-<li><strong>代价矩阵字段被静默忽略。</strong> 文档说传入代价矩阵后响应应该带 <code>decision</code>（阈值 0.625），实测响应顶层只有 <code>model</code>、<code>answers</code>、<code>usage</code>，也没有报错。P6 的代价矩阵阈值要自己实现。</li>
+<li><strong>响应里没有 <code>cache</code> 字段。</strong> 规格的示例里有 <code>"cache": {"state": "hit", "answers": "miss"}</code>，但实测这一路不给这个字段。所以缓存这一块在 Laya 侧没有现成对照可读，要自己测。</li>
+<li><strong>代价矩阵字段被静默忽略。</strong> 文档说传入代价矩阵后响应应该带 <code>decision</code>（阈值 0.625），实测响应顶层只有 <code>model</code>、<code>answers</code>、<code>usage</code>，也没有报错。代价矩阵的阈值要自己实现。</li>
 </ul>
 <h3 id="qwen3-零样本"><a class="header" href="#qwen3-零样本">Qwen3 零样本</a></h3>
 <p>指令版 <code>Qwen/Qwen3-0.6B</code>，使用聊天模板，只在候选集内归一化：</p>
@@ -279,7 +278,7 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 <tr><td>other</td><td>0.0021</td></tr>
 </tbody></table>
 </div>
-<p>正确答案是 <code>billing</code>（客户被重复扣费并威胁取消）。0.6B 零样本选错了，而 Laya 给 <code>billing</code> 1.0。<strong>这就是 P4 要超越的起点。</strong></p>
+<p>正确答案是 <code>billing</code>（客户被重复扣费并威胁取消）。0.6B 零样本选错了，而 Laya 给 <code>billing</code> 1.0。<strong>这就是要超越的起点。</strong></p>
 <p>读标签 token 的零样本读法本身成立，但有四个陷阱：</p>
 <ol>
 <li><strong>标签放进 prompt，模型会去抄标签。</strong> prompt 里只能给描述，标签作为候选出现在作答的位置。</li>
@@ -289,12 +288,12 @@ churn   | noul   | confidence 0.9883 | act_probability 1.0
 </ol>
 <p>这四个陷阱说明，读标签 token 的做法泛化不到任意标签集。DUAN 用学出来的结尾标记加决策头，原因就在这里（design.md 第 3、5 节）。</p>
 <h3 id="intel-mac-的-python-环境"><a class="header" href="#intel-mac-的-python-环境">Intel Mac 的 Python 环境</a></h3>
-<p>PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12、numpy &lt; 2，transformers 也要停在 4.57 以下。安装命令见 tools/ref/README.md。</p>
+<p>PyTorch 从 2.5 起不再发布 macOS x86_64 的 wheel，能用的最高版本是 2.2.2，它要求 Python ≤ 3.12、numpy &lt; 2，transformers 也要停在 4.57 以下。安装命令见仓库里的参考实现说明。</p>
 <h2 id="分析"><a class="header" href="#分析">分析</a></h2>
 <ul>
-<li>三个缺陷各有对应的解法：选项排列由<strong>分段布局</strong>（design.md 第 3.4 节）解决，<code>act_probability</code> 由 P6 的<strong>置信度头</strong>解决，标签依赖由<strong>中性标签增强</strong>解决。</li>
-<li>P1 不依赖任何模型权重。指标定义已经对上，<code>duan-calib</code> 的对拍测试可以直接复用同一套定义。</li>
-<li>没有跑官方的完整评测脚本，它们要下载约 3 GB 数据集，还要另装 Laya 的包。等 P4 要和公开数字逐行对比时再跑。</li>
+<li>三个缺陷各有对应的解法：选项排列由<strong>分段布局</strong>（design.md 第 3.4 节）解决，<code>act_probability</code> 由<strong>置信度头</strong>解决，标签依赖由<strong>中性标签增强</strong>解决。</li>
+<li>指标这一层不依赖任何模型权重。定义已经对上，可以直接复用同一套实现做对拍。</li>
+<li>没有跑官方的完整评测脚本，它们要下载约 3 GB 数据集，还要另装 Laya 的包。等要和公开数字逐行对比时再跑。</li>
 </ul>
 <p><strong>尚未验证：</strong></p>
 <ul>

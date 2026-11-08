@@ -175,7 +175,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="一次请求的数据流"><a class="header" href="#一次请求的数据流">一次请求的数据流</a></h1>
-<p>这是 U3 的参考答案。先合上这一页，自己把图画出一次，画完再回来对照。</p>
+<p>这一章跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
 <p>我们跟着一个真实请求走一遍：从一段 JSON 进来到一个类型化答案出去，中间经过了什么。重点是<strong>DUAN 换掉了哪一段</strong>——这是画数据流图时最容易画错的地方。</p>
 <h2 id="先看请求长什么样"><a class="header" href="#先看请求长什么样">先看请求长什么样</a></h2>
 <pre><code class="language-json">{
@@ -249,9 +249,9 @@ tok(state)[:room] [SEP]
 </code></pre>
 <p>选项上限 48 token，如果总长超过 <code>head_max_len</code> 就每个压到 <code>max(4, ...)</code>。state 从尾部截断，而且是<strong>静默</strong>的——这是个已知缺陷（Laya #174）。</p>
 <p>两边都要防一件事：用户文本里如果字面写着 <code>[MASK]</code> 或 <code>&lt;mask&gt;</code>，渲染时替换成空格，否则用户可以伪造标记。DUAN 的标记用的是词表外的 id，分词器压根产生不了，所以理论上不需要这层防护，但保留着没坏处。</p>
-<p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是 P4 要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
+<p><strong>Qwen3。</strong> 一次带分段掩码的前向，读完所有问题和选项。零样本时也可以不用决策头，直接读标签 token 的概率当分数——实测这道题 0.6B 选了 <code>sales</code>（0.488）而不是正确的 <code>billing</code>（0.447）。这是这个模型要超越的起点。这个读法有四个坑，见下方「零样本的四个坑」。</p>
 <p><strong>state 前缀 KV 缓存。</strong> 同一个 state 上的多个问题可以共用。Laya 做不到：问题数从 1 加到 10，136ms → 993ms，7.3 倍，基本线性，说明 state 每问都重算。DUAN 靠 Qwen3 的因果结构白得。</p>
-<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。文档里那个 <code>"cache": {"state": "hit", "answers": "miss"}</code> 示例属于扩展块，只在原生模型的响应里出现。所以 P8 没有 Laya 侧的现成参照可比，得自己测。</p>
+<p>有个细节容易搞错：Laya compat 的响应里<strong>没有</strong> <code>cache</code> 字段。文档里那个 <code>"cache": {"state": "hit", "answers": "miss"}</code> 示例属于扩展块，只在原生模型的响应里出现。所以缓存这一块没有 Laya 侧的现成参照可比，得自己测。</p>
 <p><strong>决策头。</strong> Laya 是 <code>LayerNorm(d) → Linear(d,d) → GELU → Linear(d,1)</code>，每个选项出一个 logit。DUAN 用同样形态，但多一个按题型的偏置，作用在每个选项段结尾标记的隐藏状态上。</p>
 <p>score 题还要额外加序数嵌入，因为位置重计之后模型看不出档位顺序（<a href="encoder-decoder.html">encoder-decoder.md</a> 第 7.2 节）。</p>
 <p><strong>校准。</strong> 温度按 <code>(type, k_bucket, lang_group)</code> 三键查找：先找完全匹配，逐级回退到更粗的桶。k 桶是 <code>2</code> / <code>3-5</code> / <code>6-10</code> / <code>11-31</code> / <code>32-255</code>，温度裁剪到 <code>[0.25, 8.0]</code>。</p>
@@ -274,7 +274,7 @@ tok(state)[:room] [SEP]
 </ol>
 <p>所以 DUAN 用学出来的标记加打分器，不用这套读法。</p>
 <h2 id="改一个东西看会发生什么"><a class="header" href="#改一个东西看会发生什么">改一个东西，看会发生什么</a></h2>
-<p>U5 要复现的就是这张表。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见 <a href="../../experiments/2026-11-02-p0-laya-baseline/index.html">P0 实测记录</a>。</p>
+<p>下面这张表可以自己复现。模型 <code>laya-multilingual</code>（快照 <code>7b928d8</code>），CPU 6 线程。完整记录见<a href="../../experiments/2026-11-02-p0-laya-baseline/index.html">laya 缺陷实测</a>。</p>
 <div class="table-wrapper"><table><thead><tr><th>改动</th><th>Laya 的变化</th><th>Qwen3 零样本</th><th>为什么反直觉</th></tr></thead><tbody>
 <tr><td>选项顺序反转</td><td><code>billing</code> 1.0 → 0.998；同一请求里的 <code>urgency</code>、<code>churn</code> 完全不变</td><td>待测</td><td>只有被改的那个问题变，说明问题之间独立；顺序影响只在问题内部</td></tr>
 <tr><td>加一个明显错误的选项 <code>legal</code></td><td><code>billing</code> 仍是 1.0</td><td>待测</td><td>概率已经饱和，softmax 没有余量可分，候选集效应被掩盖了。要看不饱和的题才看得出来</td></tr>
@@ -284,7 +284,7 @@ tok(state)[:room] [SEP]
 </tbody></table>
 </div>
 <p>还有个不属于改动实验、但同样反直觉的现象：三个问题的 <code>act_probability</code> 全是 1.0，包括最大概率只有 0.3686 的 <code>urgency</code>。Laya 的 act head 从来没训练过。</p>
-<h2 id="自测"><a class="header" href="#自测">自测</a></h2>
+<h2 id="几个可以自问的问题"><a class="header" href="#几个可以自问的问题">几个可以自问的问题</a></h2>
 <ol>
 <li>DUAN 替换掉的边界在哪里？框外还留着哪几个节点？</li>
 <li>为什么 Laya 需要 <code>gather</code>，而 DUAN 不需要一个对应的独立节点？</li>

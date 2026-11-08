@@ -210,7 +210,7 @@
 <tr><td>QK-norm</td><td>查询键归一化</td><td>在计算 $QK^\top$ 之前对每个头的 Q 和 K 各做一次归一化；Qwen3 有，Llama 没有</td></tr>
 <tr><td>SwiGLU</td><td>SwiGLU 门控前馈</td><td>门控前馈的一种，门用 SiLU；Qwen3 中间维度 3072，Llama 常用 4d</td></tr>
 <tr><td>KV cache</td><td>键值缓存</td><td>保存已算过的 K 和 V，增量前向时只算新 token；<code>KvCache::len()</code> 是新 token 在 <code>bias</code> 里的列偏移，不是它的 RoPE 位置</td></tr>
-<tr><td>prefix caching</td><td>前缀缓存</td><td>KV 缓存的一种用法：同一个前缀（例如 state）只算一次，多个后缀共用；P8 的收益来源</td></tr>
+<tr><td>prefix caching</td><td>前缀缓存</td><td>KV 缓存的一种用法：同一个前缀（例如 state）只算一次，多个后缀共用；推理加速的收益来源</td></tr>
 <tr><td>order flip rate</td><td>选项翻转率</td><td>调换选项顺序后答案改变的比例</td></tr>
 <tr><td>permutation invariance</td><td>置换不变性</td><td>打乱输入顺序后输出不变的性质；pointwise 打分满足，listwise 不满足</td></tr>
 <tr><td>chunk consistency</td><td>分块一致性</td><td>同一道题在不同分块方式下给出的答案一致率。有两种口径，<strong>不能混</strong>：①「一次前向 vs 各分块」，②「各分块之间」。在一份对 Laya 的实测里：①0.593–0.623（混有 token 预算差异），②0.790</td></tr>

@@ -175,11 +175,12 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="duan-模型规格"><a class="header" href="#duan-模型规格">DUAN 模型规格</a></h1>
-<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。plan.md 的每个里程碑都是为了把这里的某一节做出来，learn/ 的每个学习单元都是为了能看懂、做出某一节。</p>
-<p>规格里写「待定」的地方，都注明由哪个阶段的哪个实验来定。实验定下来以后改这份文档，不另写。</p>
+<p>这份文档回答一个问题：DUAN 要做成的模型具体长什么样。</p>
+<p>它写给两类人：想理解这个模型每个决定背后理由的读者，以及要照着它实现的人。<strong>不必顺序读</strong>——想懂机制去读<a href="learn/encoder-decoder.html">编码器与解码器</a>，想知道一次请求怎么走读<a href="learn/dataflow.html">数据流</a>，这里只放结论和参数。</p>
+<p>规格里标「待定」的地方，都会写清用什么实验来定。实验定下来以后直接改这份文档，不另写。</p>
 <h2 id="1-目标与非目标"><a class="header" href="#1-目标与非目标">1. 目标与非目标</a></h2>
 <p><strong>目标：</strong> 一个中文为主的 System One 决策模型。输入一段 state 和若干问题（choice、score、noul），一次前向输出每个问题的校准概率。</p>
-<p>终点的验收标准，也就是 P4 的完成标准：</p>
+<p>终点的验收标准：</p>
 <ul>
 <li>在中文评测集上，NLL 和 ECE 优于用同一批数据、同样损失微调的 laya-multilingual；</li>
 <li>至少 3 个随机种子；</li>
@@ -189,7 +190,7 @@
 <ul>
 <li>不生成文本，不做对话。</li>
 <li>不复刻 Jev 的内部结构。</li>
-<li>不追求亚毫秒延迟。那条路要走蒸馏，见 P8。</li>
+<li>不追求亚毫秒延迟。那条路要走蒸馏。</li>
 <li>不做 HTTP 服务。DUAN 提供模型和推理库，需要服务时接一层，而不是把它做进模型。</li>
 </ul>
 <h2 id="2-固定下来的约定"><a class="header" href="#2-固定下来的约定">2. 固定下来的约定</a></h2>
@@ -197,9 +198,9 @@
 <div class="table-wrapper"><table><thead><tr><th>内容</th><th>约定</th></tr></thead><tbody>
 <tr><td>请求格式，三种题型的答案字段</td><td>第 5 节</td></tr>
 <tr><td>置信度的两个公式（Jev 公式和熵公式）</td><td>第 5 节</td></tr>
-<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td>第 6 节，<code>crates/duan-calib</code></td></tr>
-<tr><td>训练数据格式、增强、防泄漏规则</td><td><code>tools/data</code></td></tr>
-<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td><code>crates/duan-calib</code></td></tr>
+<tr><td>校准契约：温度按（题型、k 桶、语言组）查找，裁剪到 [0.25, 8.0]</td><td>第 6 节</td></tr>
+<tr><td>训练数据格式、增强、防泄漏规则</td><td>第 6 节</td></tr>
+<tr><td>指标：NLL、Brier、ECE（15 个等宽分箱，第一个左闭）</td><td>第 6 节</td></tr>
 <tr><td>适当评分规则损失、RPS</td><td>第 6 节</td></tr>
 </tbody></table>
 </div>
@@ -266,7 +267,7 @@
 <li>这些 id 分词器不会产生，所以用户文本无法拼出一个标记。</li>
 <li>新标记的嵌入初始化为普通 token 嵌入的均值，再加 std 0.02 的噪声，然后在训练中学习。</li>
 </ul>
-<p><strong>待定（P3）：</strong> 用分词器确认实际用到的 id 数和空行范围，然后在这里写死每个标记的 id。</p>
+<p><strong>待定：</strong> 用分词器确认实际用到的 id 数和空行范围，然后在这里写死每个标记的 id。</p>
 <h3 id="37-长度预算"><a class="header" href="#37-长度预算">3.7 长度预算</a></h3>
 <p>预算取值如下：</p>
 <div class="table-wrapper"><table><thead><tr><th>内容</th><th>预算</th></tr></thead><tbody>
@@ -276,11 +277,11 @@
 </tbody></table>
 </div>
 <p>超出预算的部分从尾部截断，并在截断处放一个 <code>⟨cut⟩</code>。</p>
-<p><strong>待定（P3）：</strong> state 的预算。按中文数据在 Qwen3 分词器下的长度分布来定，上限是模型的 32,768。</p>
+<p><strong>待定：</strong> state 的预算。按中文数据在 Qwen3 分词器下的长度分布来定，上限是模型的 32,768。</p>
 <h2 id="4-主干"><a class="header" href="#4-主干">4. 主干</a></h2>
 <h3 id="41-为什么是因果解码器"><a class="header" href="#41-为什么是因果解码器">4.1 为什么是因果解码器</a></h3>
 <p>第 3 节那套布局，说到底只要求一件事：<strong>state 段的表示不能依赖问题或选项，选项段之间不能互相看见。</strong></p>
-<p>为什么？因为只有这样，state 才能算一次就被复用，选项才能各自独立打分。这两条是 P4 和 P8 的基础。</p>
+<p>为什么？因为只有这样，state 才能算一次就被复用，选项才能各自独立打分。这两条是训练和推理加速的基础。</p>
 <p><strong>注意这个要求是段级的，不是 token 级的。</strong> 有两种办法能做到：</p>
 <ul>
 <li><strong>靠因果注意力</strong>（E 方案）：state 的 token 本来就看不在它后面的东西，问题块排在它后面，天然看不到。</li>
@@ -301,7 +302,7 @@
 <p>表里「前向」和「打分」是两列，不要连起来读：B 慢是因为每个选项单独前向；A 快是因为把选项塞进了同一个序列，代价是选项互相看得见。E 两者兼得——它用分段掩码把「塞进同一序列」和「互不可见」同时做到了。但注意<strong>计算量没省</strong>，省的是重复的权重加载和前缀计算。</p>
 <p>逐条说为什么这样选：</p>
 <ul>
-<li><strong>A 不行，它的代价是结构性的。</strong> state 和问题从第 0 层就互相可见，什么都缓存不下来。实测同一 state 上问题数 1 → 10，耗时 7.3 倍（P0 实测记录）——而 P8 的验收标准就是用这个场景，说明它不是边界情况。</li>
+<li><strong>A 不行，它的代价是结构性的。</strong> state 和问题从第 0 层就互相可见，什么都缓存不下来。实测同一 state 上问题数 1 → 10，耗时 7.3 倍（见<a href="../experiments/2026-11-02-p0-laya-baseline/index.html">laya 缺陷实测</a>）——而「同一 state 上问 10 个问题」正是这个项目的目标场景，说明它不是边界情况。</li>
 <li><strong>B 不行，成本随选项数线性增长。</strong> 每个选项一次完整前向，长 state 被重复编码 k 次，而 k 最大到 255（第 3.7 节）。</li>
 <li><strong>C 可行，但要付两次钱。</strong> 它靠多一套结构和教师蒸馏把「state 只算一次」换回来，代价是 state 的表示不能随问题调整。这个精度损失要等实测才知道。它愿意付，是因为要在同一套 ModernBERT 权重上和 Laya 对拍；DUAN 没有这个包袱。</li>
 <li><strong>D 原理上可行，但它是在编码器里手工重建因果结构。</strong> 加段级掩码后三条性质都满足，问题是：mask 和位置重计要自己写，权重又是按 MLM 训的、没在这种可见范围下待过，微调成本不比 E 低，还拿不到 E 那批中文预训练语料。</li>
@@ -310,17 +311,17 @@
 <p>这条选择的两个前提，要分清哪个已经确定、哪个还要检验：</p>
 <ul>
 <li><strong>结构收益是确定的。</strong> 前向次数、state 复用、置换不变性都可以从第 3 节直接推出来，与权重无关。</li>
-<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，P4 就是用来检验它的（plan.md 的「风险」）。输了照实报告差距，并重新评估这个选择。</li>
+<li><strong>能力收益还是假设。</strong> 「Qwen3 在中文上更强」目前没有同数据对照支持，要用同数据训练两组模型对照来检验。输了照实报告差距，并重新评估这个选择。</li>
 </ul>
 <p>代价有三条，都写进了验收或后续阶段，不是遗留问题：</p>
 <ul>
 <li><strong>选项之间不能直接比较。</strong> 候选集只通过 softmax 归一化起作用（第 3.4 节）。出现确实需要联合比较的题型时，只对排名靠前的几个选项加一次联合打分，不退回顺序拼接。</li>
-<li><strong>解码器不是判别模型。</strong> 它是 CLM 预训练，某个位置的隐藏状态本质上是「下一个 token 会是什么」的中间量，所以要读选项文本之后的位置（第 3.5 节的结尾标记），并且必须微调，不能指望零样本。零样本读法机制成立但很脆，只作参考：<code>tools/ref/qwen_zero_probe.py</code>，实测与四个陷阱见 P0 实测记录。</li>
-<li><strong>规模是被算出来的，不是拍的。</strong> 0.6B 对应 plan.md 的延迟上限（GPU 个位数毫秒）和 24 GB 硬件能全量微调。后一条是<strong>估算</strong>：FP32 权重、梯度、AdamW 状态合计约 10 GB，这只覆盖参数相关的部分，<strong>不含激活值和注意力矩阵</strong>；实际可用 batch size 要等 P4 用真实的 state/选项长度测出来，见第 8 节的待定项。</li>
+<li><strong>解码器不是判别模型。</strong> 它是 CLM 预训练，某个位置的隐藏状态本质上是「下一个 token 会是什么」的中间量，所以要读选项文本之后的位置（第 3.5 节的结尾标记），并且必须微调，不能指望零样本。零样本读法机制成立但很脆，只作参考，实测与四个陷阱见<a href="../experiments/2026-11-02-p0-laya-baseline/index.html">laya 缺陷实测</a>。</li>
+<li><strong>规模是被算出来的，不是拍的。</strong> 0.6B 对应延迟上限（GPU 个位数毫秒）和 24 GB 硬件能全量微调。后一条是<strong>估算</strong>：FP32 权重、梯度、AdamW 状态合计约 10 GB，这只覆盖参数相关的部分，<strong>不含激活值和注意力矩阵</strong>；实际可用 batch size 要等真实训练时用实测的 state/选项长度测出来，见第 8 节的待定项。</li>
 </ul>
 <p>推导过程的教学版本见 <a href="learn/encoder-decoder.html">learn/encoder-decoder.md</a>：从一个客服工单的例子讲起，可见矩阵、块对角矩阵为什么能同时是「一次前向」和「逐项打分」，以及四种布局的对照。</p>
 <h3 id="42-结构与参数"><a class="header" href="#42-结构与参数">4.2 结构与参数</a></h3>
-<p>主干是 <code>Qwen/Qwen3-0.6B-Base</code>，在 <code>crates/duan-qwen</code> 中用 Burn 从零实现：</p>
+<p>主干是 <code>Qwen/Qwen3-0.6B-Base</code>，用 Burn 从零实现：</p>
 <ul>
 <li>28 层，隐藏维度 1024；</li>
 <li>GQA：16 个查询头、8 个 KV 头，head_dim 128；</li>
@@ -360,14 +361,14 @@ p   = softmax(z / T)                 只在同一个问题的 k 个选项之间�
 <li><strong>score：</strong> <code>score = Σ i·p_i</code>，<code>confidence</code> 用 Jev 的平均绝对偏差形式。</li>
 <li><strong>noul：</strong> <code>noul = p[1]</code>，默认不输出 <code>confidence</code>。</li>
 </ul>
-<p>三者都带 <code>action.act_probability</code>。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 在 P6 训练一个置信度头，AUROC 不高于 max(p) 就不发布它（P6 完成标准）。</p>
-<p><strong>待定（P4）：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先加在输出端，P4 做一次对照。</p>
+<p>三者都带 <code>action.act_probability</code>。Laya 的 act head 从没训练过，这个值不能当置信度；DUAN 要另训一个置信度头，AUROC 不高于 max(p) 就不发布它。</p>
+<p><strong>待定：</strong> 序数嵌入加在输出端（上式），还是加在 <code>⟨lvl⟩</code> 的输入嵌入上，让主干从第一层就能看到顺序。先加在输出端，之后做一次对照。</p>
 <h2 id="6-训练与校准"><a class="header" href="#6-训练与校准">6. 训练与校准</a></h2>
 <p><strong>损失，每个问题一项：</strong></p>
 <pre><code class="language-text">L = ProperScoreLoss(p, t) + w_ord · RPS(p, t)    RPS 只用于 score，w_ord = 1.0
 ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i) / ||p||_2 )
 </code></pre>
-<p>DUAN 没有教师模型，也没有拆成两个塔，所以知识蒸馏项、隐藏状态蒸馏项和短名单项都不用。P4 对比 proper、ce、pg 三种损失，结论写回这一节。</p>
+<p>DUAN 没有教师模型，也没有拆成两个塔，所以知识蒸馏项、隐藏状态蒸馏项和短名单项都不用。三种候选损失（proper、ce、pg）要对比，结论写回这一节。</p>
 <p><strong>增强：</strong> 只做和结构有关的几项：</p>
 <ul>
 <li>打乱 choice 选项的顺序；</li>
@@ -383,11 +384,11 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <li>学习率：新权重 1e-4，主干 3e-5，2% warmup，余弦衰减；</li>
 <li>梯度裁剪 1.0。</li>
 </ul>
-<p><strong>待定（P4）：</strong> 只训练顶部 N 层，还是全量训练。在 24 GB 级别的硬件上两种都跑一遍，比较指标和显存。</p>
+<p><strong>待定：</strong> 只训练顶部 N 层，还是全量训练。在 24 GB 级别的硬件上两种都跑一遍，比较指标和显存。</p>
 <p><strong>校准：</strong></p>
 <ul>
-<li>P1 先在留出集上拟合一个温度 T。</li>
-<li>P6 改成按（题型、k 桶、语言组）分桶拟合，写出 <code>calibration.json</code>。</li>
+<li>先在留出集上拟合一个全局温度 T。</li>
+<li>之后改成按（题型、k 桶、语言组）分桶拟合，写出 <code>calibration.json</code>。</li>
 <li>拟合时和推理时用同一个裁剪范围 [0.25, 8.0]。</li>
 <li>校准只在人工标注的数据上报告。</li>
 </ul>
@@ -402,18 +403,19 @@ ProperScoreLoss(p, t) = -( Σ t_i · log max(p_i, 1e-4) + 0.5 · (Σ t_i · p_i)
 <li>state 块做一次前向后，KV 缓存下来。同一 state 上后来的问题，只需要计算各自的<strong>问题块</strong>和选项段，<code>forward_with</code> 的 <code>caches</code> 参数负责这件事。问题块本身<strong>不跨请求缓存</strong>：它随问题内容变化，每个请求重算。</li>
 <li><code>KvCache::len()</code> 是新 token 在 <code>bias</code> 中的列偏移，而不是新 token 的 RoPE 位置。两者在选项段里不同：每段的 RoPE 位置都从 <code>n + len(问题块)</code> 重新开始。</li>
 <li>正确性以 <code>flex</code> 后端上的 FP32 为准，<code>metal</code> 和 <code>cuda</code> 后端先和它对齐。</li>
-<li>量化（bf16、int8）放到 P8，以 argmax 翻转率作为验收指标。</li>
+<li>量化（bf16、int8）留到后面做，以 argmax 翻转率作为验收指标。</li>
 </ul>
 <h2 id="8-待定事项"><a class="header" href="#8-待定事项">8. 待定事项</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>事项</th><th>由谁定</th><th>怎么定</th></tr></thead><tbody>
-<tr><td>标记的 id</td><td>P3</td><td>用分词器确认空行的范围</td></tr>
-<tr><td>state 的长度预算</td><td>P3</td><td>统计中文数据在 Qwen3 分词器下的长度分布</td></tr>
-<tr><td>只训顶部 N 层还是全量训练</td><td>P4</td><td>两种都跑，至少 3 个种子</td></tr>
-<tr><td><strong>全量微调在 24 GB 上的实际 batch size</strong></td><td>P4</td><td>目前只有参数侧的 10 GB 估算，激活值未计入。在真实 state/选项长度下测显存峰值，再定这个结论是否成立</td></tr>
-<tr><td>序数嵌入加在输入端还是输出端</td><td>P4</td><td>score 题上的 RPS 和镜像一致性</td></tr>
-<tr><td>损失：proper、ce 还是 pg</td><td>P4</td><td>比较 NLL 和 ECE</td></tr>
-<tr><td>标记放在选项前面的布局</td><td>P4</td><td>只作为对照组，用来证明第 3.4 节的性质，不会被采用</td></tr>
-<tr><td><strong>单次前向的最大选项数</strong></td><td>P3</td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用的既有预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
+<p>这张表列的是还没定下来的事，以及打算怎么定。<strong>没有一项阻塞理解</strong>——想懂这个模型怎么工作，不用等这些结论。</p>
+<div class="table-wrapper"><table><thead><tr><th>事项</th><th>怎么定</th></tr></thead><tbody>
+<tr><td>标记的 id</td><td>用分词器确认嵌入矩阵空行的范围，然后写死</td></tr>
+<tr><td>state 的长度预算</td><td>统计中文数据在 Qwen3 分词器下的长度分布</td></tr>
+<tr><td>只训顶部 N 层还是全量训练</td><td>两种都跑，至少 3 个种子</td></tr>
+<tr><td><strong>全量微调在 24 GB 上的实际 batch size</strong></td><td>目前只有参数侧的 10 GB 估算，激活值未计入。在真实的 state/选项长度下测显存峰值，再定这个结论是否成立</td></tr>
+<tr><td>序数嵌入加在输入端还是输出端</td><td>score 题上的 RPS 和镜像一致性</td></tr>
+<tr><td>损失：proper、ce 还是 pg</td><td>比较 NLL 和 ECE</td></tr>
+<tr><td>标记放在选项前面的布局</td><td>只作为对照组，用来证明第 3.4 节的性质，不会被采用</td></tr>
+<tr><td><strong>单次前向的最大选项数</strong></td><td>第 3.7 节写「每问题最多 255 个选项」，这是沿用的既有预算，不是由上下文长度算出来的。等 state 预算定下后，按 32,768 减去 state 和问题块，反推实际能装多少</td></tr>
 </tbody></table>
 </div>
                     </main>

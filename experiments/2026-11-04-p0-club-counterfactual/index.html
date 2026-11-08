@@ -176,13 +176,12 @@
                     <main>
                         <h1 id="欧冠球队的反事实对照laya-与-qwen3-06b-零样本"><a class="header" href="#欧冠球队的反事实对照laya-与-qwen3-06b-零样本">欧冠球队的反事实对照：Laya 与 Qwen3-0.6B 零样本</a></h1>
 <ul>
-<li><strong>阶段：</strong> P0</li>
 <li><strong>问题：</strong> 材料只给间接线索（「德国俱乐部」），答案要先把国籍换成队名时，Laya 和 Qwen3-0.6B 零样本各选什么？选的依据是材料，还是选项的字面和位置？</li>
 <li><strong>结论：</strong> 这是两道题上的观察，不是结论。
 <ul>
 <li>Laya 没有把国籍对到队名上。写 German 和写 Italian 都选 Roma，换一个德国队名或者把选项倒序，答案就变。</li>
 <li>Qwen3-0.6B 零样本按材料作答：German 选德国球队，Italian 选 Roma，倒序不变。材料为空时它选 <code>other</code>，没有用上「拜仁拿过欧冠」这类知识。</li>
-<li>这不说明 Qwen3 零样本更好。同一套读法放到 P0 那封扣费邮件上，Qwen3 选错成 <code>other</code>，Laya 给 <code>billing</code> 1.0。</li>
+<li>这不说明 Qwen3 零样本更好。同一套读法放到扣费邮件那道题上，Qwen3 选错成 <code>other</code>，Laya 给 <code>billing</code> 1.0。</li>
 <li>零样本读法有第四个陷阱：作答前缀要和模型实际输出的格式一致，否则单 token 的标签会占便宜。</li>
 </ul>
 </li>
@@ -207,7 +206,7 @@
 <tr><td><code>german-dortmund.json</code></td><td>The German club won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
 <tr><td><code>only-german-team.json</code></td><td>Only the German team has won the Champions League.</td><td>Tottenham、Dortmund、Roma、other</td><td>Dortmund</td></tr>
 <tr><td><code>only-german-team-reversed.json</code></td><td>同上</td><td>other、Roma、Dortmund、Tottenham</td><td>Dortmund</td></tr>
-<tr><td><code>p0-billing.json</code></td><td>P0 基线的扣费邮件，问题是 “Which team should handle this”</td><td>billing、technical、sales、other，带描述</td><td>billing</td></tr>
+<tr><td><code>p0-billing.json</code></td><td>扣费邮件那道题，问题是 “Which team should handle this”</td><td>billing、technical、sales、other，带描述</td><td>billing</td></tr>
 </tbody></table>
 </div>
 <p><code>italian.json</code> 是反事实对照：按材料该选 Roma，按事实 Roma 从没拿过欧冠。读材料的模型选 Roma，凭记忆的模型会选 Bayern。<code>p0-billing.json</code> 是 Laya 擅长的路由题，用来看 Qwen3 的读法换到这类题上表现如何。</p>
@@ -240,7 +239,7 @@
 <tr><td><code>p0-billing.json</code></td><td>billing</td><td>billing 1.0</td><td>other 0.5092（billing 0.4885）</td><td><code>- other: Anything else</code></td></tr>
 </tbody></table>
 </div>
-<p>Laya 七个请求的 <code>act_probability</code> 全是 1.0，和 P0 基线一致。</p>
+<p>Laya 七个请求的 <code>act_probability</code> 全是 1.0，和前面那次实测一致。</p>
 <h3 id="作答前缀的影响"><a class="header" href="#作答前缀的影响">作答前缀的影响</a></h3>
 <p>同一个 Qwen3，只改标签前面的前缀：</p>
 <div class="table-wrapper"><table><thead><tr><th>请求</th><th>前缀 <code>- </code></th><th>不加前缀</th><th>贪心生成</th></tr></thead><tbody>
@@ -256,12 +255,12 @@
 <p>加前缀时，7 个选择都和贪心生成一致。不加前缀时有 2 个不一致，都是模型先写 <code>- </code> 的题，而且都误选了 <code>other</code>。</p>
 <h2 id="分析"><a class="header" href="#分析">分析</a></h2>
 <ul>
-<li><strong>Laya 没有读出国籍。</strong> German 和 Italian 都选 Roma，而且写 German 时 Roma 的概率（0.9176）比写 Italian 时（0.6692）还高。Bayern 在三种 state 下都在 0.03 左右。同一句 German，把 Bayern 换成 Dortmund，Dortmund 以 0.4586 对 0.4072 险胜；<code>only-german-team</code> 一组把选项倒序，答案在 Roma 和 Dortmund 之间翻转。这是 P0 已记录的「选项排列会改变答案」和「答案依赖标签字面」在一道新题上的实例。</li>
+<li><strong>Laya 没有读出国籍。</strong> German 和 Italian 都选 Roma，而且写 German 时 Roma 的概率（0.9176）比写 Italian 时（0.6692）还高。Bayern 在三种 state 下都在 0.03 左右。同一句 German，把 Bayern 换成 Dortmund，Dortmund 以 0.4586 对 0.4072 险胜；<code>only-german-team</code> 一组把选项倒序，答案在 Roma 和 Dortmund 之间翻转。这就是前面那次实测记录过的「选项排列会改变答案」和「答案依赖标签字面」，在一道新题上又一次出现。</li>
 <li><strong>Qwen3-0.6B 按材料作答。</strong> 反事实对照下它跟着材料从 Bayern 换到 Roma，说明不是在背「谁拿过欧冠」。倒序前后都选 Dortmund（1.0 和 0.9889）。材料为空时选 <code>other</code>，在这个规模上，它的世界知识不足以单独答对这道题。</li>
-<li><strong>换到路由题，Qwen3 零样本反而错了。</strong> 扣费邮件上它选 <code>other</code>，billing 只差 0.02；Laya 在这类题上训练过，给 billing 1.0。P0 用另一个 prompt 测过这封邮件，Qwen3 选的是 <code>sales</code>。两个 prompt 下都选错，但错的方向不同，说明 0.6B 零样本对 prompt 措辞很敏感。</li>
-<li><strong>第四个零样本陷阱。</strong> P0 实测记录列了三个陷阱。这里多一个：选项写成 <code>- 标签: 描述</code> 的列表时，模型常常先照抄 <code>- </code>。在作答位置直接读标签，几个标签的概率都很低，只有一个 token 的 <code>other</code> 少乘几个概率，就占了便宜。用贪心生成核对读法，是发现这类问题最直接的办法。</li>
+<li><strong>换到路由题，Qwen3 零样本反而错了。</strong> 扣费邮件上它选 <code>other</code>，billing 只差 0.02；Laya 在这类题上训练过，给 billing 1.0。换一个 prompt 测这封邮件，Qwen3 选的是 <code>sales</code>。两个 prompt 下都选错，但错的方向不同，说明 0.6B 零样本对 prompt 措辞很敏感。</li>
+<li><strong>第四个零样本陷阱。</strong> 前面那次实测列了三个陷阱。这里多一个：选项写成 <code>- 标签: 描述</code> 的列表时，模型常常先照抄 <code>- </code>。在作答位置直接读标签，几个标签的概率都很低，只有一个 token 的 <code>other</code> 少乘几个概率，就占了便宜。用贪心生成核对读法，是发现这类问题最直接的办法。</li>
 <li><strong>两者不能直接比较。</strong> Laya 是一次前向给每个选项打分；Qwen3 用聊天模板和列表 prompt，对每个候选整段打分。只有两道题、七个请求，也没有多个种子，所以这里只说明现象，不能当准确率或校准的结论。</li>
-<li><strong>对 DUAN 的意义。</strong> 「德国俱乐部 → 拜仁」这一跳，解码器骨干在零样本时就能完成。DUAN 用结尾标记加决策头替换读标签 token 的读法（design.md 第 3、5 节），P4 微调后这种能力是否还在，可以拿这组请求做回归检查。</li>
+<li><strong>对 DUAN 的意义。</strong> 「德国俱乐部 → 拜仁」这一跳，解码器骨干在零样本时就能完成。DUAN 用结尾标记加决策头替换读标签 token 的读法（design.md 第 3、5 节），微调之后这种能力是否还在，可以拿这组请求做回归检查。</li>
 </ul>
 <p><strong>尚未验证：</strong></p>
 <ul>
